@@ -72,69 +72,48 @@ describe('Feswap', () => {
 
   it('setMinter', async () => {
     expect(await Feswa.minter()).to.eq(timelock.address)
-    await expect(Feswa.setMinter(timelock.address)).to.be.revertedWith('FESW::setMinter: only the minter can change the minter address')
+    await expect(Feswa.setMinter(other0.address)).to.be.revertedWith('FESW::setMinter: only the minter can change the minter address')
 
-    const targets = [timelock.address];
+    // Preprar the proposal, throuth the proposal to change the Minter.
+    // In this way, also check governance mechanism 
+    const targets = [Feswa.address];
     const values = ["0"];
     const signatures = ["setMinter(address)"];
     const callDatas = [encodeParameters(['address'], [other0.address])];
   
-  //  lastBlock = await provider.getBlock('latest') ; console.log("lastBlockAAAA", lastBlock)
     await Feswa.delegate(wallet.address);
-
-    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockAAAAAAAAAA", lastBlock)
-
-    await governorAlpha.propose(targets, values, signatures, callDatas, "setMinter to other_0");
-
-    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockBBBBBBBBBBB", lastBlock)
-
+    await governorAlpha.propose(targets, values, signatures, callDatas, "setMinter to other0");
     proposalId = await governorAlpha.latestProposalIds(wallet.address);
 
+    // increase the block number to prepare for casting vote
     lastBlock = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + 10)
 
     await governorAlpha.castVote(proposalId, true, overrides);
-    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockZZZZZZZZZZZZ", lastBlock)
-    console.log(await governorAlpha.proposals(proposalId))
-
-    console.log(await governorAlpha.state(proposalId))
-    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockAAAAAAAAAAA", lastBlock)  
-
+ 
 //    does not work for ganache provider    
 //    await advanceBlocks(provider, 40_320)
+    //  Need to ine 6 blocks to queue the proposal (castVote mine one block automatically)
     await mineBlock(provider, lastBlock.timestamp + 20)
-    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockBBBBBBBBBBBBB", lastBlock)  
-
-    await expect(governorAlpha.queue(proposalId, overrides)).to.be.revertedWith('GovernorAlpha::queue: proposal can only be queued if it is succeeded')
-
     await mineBlock(provider, lastBlock.timestamp + 30)
-    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockCCCCCCCCCCCCC", lastBlock) 
+    await expect(governorAlpha.queue(proposalId, overrides))
+          .to.be.revertedWith('GovernorAlpha::queue: proposal can only be queued if it is succeeded')
 
     await mineBlock(provider, lastBlock.timestamp + 40)
-    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockDDDDDDDDDDDDDD", lastBlock) 
-    
-    await mineBlock(provider, lastBlock.timestamp + 40)
-    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockEEEEEEEEEEEEEE", lastBlock) 
-
-    let BlockNumber = await provider.getBlockNumber() 
-    console.log("BlockNumber",BlockNumber)
-
+    await mineBlock(provider, lastBlock.timestamp + 50)
     await governorAlpha.queue(proposalId, overrides)
-    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockFFFFFFFFFFFFF", lastBlock)    
 
+    // Simutate time daly (2 days) to execute proposal
+    lastBlock = await provider.getBlock('latest') 
     await mineBlock(provider, lastBlock.timestamp + 3600 * 24)
-    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockFFFFFFFFAAAAAAAAA", lastBlock) 
     
-    await expect(governorAlpha.execute(proposalId, overrides)).to.be.revertedWith('Timelock::executeTransaction: Transaction hasn\'t surpassed time lock.')
+    await expect(governorAlpha.execute(proposalId, overrides))
+          .to.be.revertedWith('Timelock::executeTransaction: Transaction hasn\'t surpassed time lock.')
 
-    console.log(await governorAlpha.getActions(proposalId))
-  
+    lastBlock = await provider.getBlock('latest') 
     await mineBlock(provider, lastBlock.timestamp + 3600 * 24)
-    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockFFFFFFFFBBBBBBBBB", lastBlock) 
-
+ 
     await governorAlpha.execute(proposalId, overrides)
-    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockGGGGGGGGGGGG", lastBlock)    
-
     expect(await Feswa.minter()).to.eq(other0.address)
   })
   
