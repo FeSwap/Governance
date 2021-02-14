@@ -43,7 +43,7 @@ describe('castVote', () => {
     timelock = fixture.timelock
     governorAlpha = fixture.governorAlpha
 
-    await enfranchise(other0, 50)
+ //   await enfranchise(other0, 50)
     await Feswa.delegate(wallet.address);
     await governorAlpha.propose(targets, values, signatures, callDatas, "do nothing");
     proposalId = await governorAlpha.latestProposalIds(wallet.address);
@@ -81,19 +81,18 @@ describe('castVote', () => {
 
   it("Proposal get voted", async () => {
     // Proposal threshold check
+    await expect(governorAlpha.connect(other0).propose(targets, values, signatures, callDatas, "do nothing"))
+          .to.be.revertedWith('GovernorAlpha::propose: proposer votes below proposal threshold')
+
+    await Feswa.transfer(other0.address, expandTo18Decimals(10_000_000)); //still less than the threshold
+    await Feswa.connect(other0).delegate(other0.address);
+
     await expect(governorAlpha.connect(other1).propose(targets, values, signatures, callDatas, "do nothing"))
           .to.be.revertedWith('GovernorAlpha::propose: proposer votes below proposal threshold')
 
-    await enfranchise(other0, 1000_0000)  //still less than the threshold
-    await expect(governorAlpha.connect(other1).propose(targets, values, signatures, callDatas, "do nothing"))
-          .to.be.revertedWith('GovernorAlpha::propose: proposer votes below proposal threshold')
-
-
-    await enfranchise(other0, 1000_0000) 
+    await enfranchise(other0, 1) 
     await governorAlpha.connect(other1).propose(targets, values, signatures, callDatas, "do nothing")
-      
     proposalId = await governorAlpha.latestProposalIds(wallet.address);
-    lastBlock = await provider.getBlock('latest')
 
     let receipt = await governorAlpha.getReceipt(proposalId, other0.address)
     expect(receipt.hasVoted).to.be.equal(false)
