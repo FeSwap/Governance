@@ -2,8 +2,8 @@ import chai, { expect } from 'chai'
 import { BigNumber, Contract, constants, Wallet } from 'ethers'
 import { solidity, MockProvider, createFixtureLoader } from 'ethereum-waffle'
 
-import { governanceFixture } from './fixtures'
-import { DELAY, mineBlock, encodeParameters, expandTo18Decimals} from './utils'
+import { governanceFixture } from '../shares/fixtures'
+import { DELAY, mineBlock, encodeParameters, expandTo18Decimals} from '../utils'
 
 import { Block } from "@ethersproject/abstract-provider";
 

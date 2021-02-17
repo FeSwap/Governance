@@ -2,9 +2,9 @@ import chai, { expect } from 'chai'
 import { Contract, Wallet, providers } from 'ethers'
 import { solidity, deployContract } from 'ethereum-waffle'
 
-import FeswapByteCode from '../build/Fesw.json'
-import Timelock from '../build/Timelock.json'
-import GovernorAlpha from '../build/GovernorAlpha.json'
+import FeswapByteCode from '../../build/Fesw.json'
+import Timelock from '../../build/Timelock.json'
+import GovernorAlpha from '../../build/GovernorAlpha.json'
 
 import { DELAY } from './utils'   // 2 days
 
