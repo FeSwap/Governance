@@ -4,8 +4,8 @@ import { solidity, MockProvider, createFixtureLoader, deployContract } from 'eth
 
 import TreasuryVester from '../../build/FeswVester.json'
 
-import { governanceFixture } from '../fixtures'
-import { mineBlock, expandTo18Decimals } from '../utils'
+import { governanceFixture } from '../shares/fixtures'
+import { mineBlock, expandTo18Decimals } from '../shares/utils'
 
 chai.use(solidity)
 

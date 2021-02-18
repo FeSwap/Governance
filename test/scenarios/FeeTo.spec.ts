@@ -8,8 +8,8 @@ import FeeToSetter from '../../build/FeeToSetter.json'
 import FeeTo from '../../build/FeeTo.json'
 import FeswapByteCode from '../../build/Fesw.json'
 
-import { governanceFixture } from '../fixtures'
-import { mineBlock, expandTo18Decimals } from '../utils'
+import { governanceFixture } from '../shares/fixtures'
+import { mineBlock, expandTo18Decimals } from '../shares/utils'
 
 chai.use(solidity)
 

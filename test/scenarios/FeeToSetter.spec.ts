@@ -5,8 +5,8 @@ import { solidity, MockProvider, createFixtureLoader, deployContract } from 'eth
 import FeSwapFactory from '../Feswap/FeswapFactory.json'
 import FeeToSetter from '../../build/FeeToSetter.json'
 
-import { governanceFixture } from '../fixtures'
-import { mineBlock } from '../utils'
+import { governanceFixture } from '../shares/fixtures'
+import { mineBlock } from '../shares/utils'
 
 chai.use(solidity)
 
