@@ -3,7 +3,7 @@ import { BigNumber, Contract, constants, Wallet } from 'ethers'
 import { solidity, MockProvider, createFixtureLoader } from 'ethereum-waffle'
 
 import { governanceFixture } from '../shares/fixtures'
-import { DELAY, mineBlock, encodeParameters, expandTo18Decimals} from '../utils'
+import { DELAY, mineBlock, encodeParameters, expandTo18Decimals} from '../shares/utils'
 
 import { Block } from "@ethersproject/abstract-provider";
 
@@ -24,7 +24,7 @@ enum ProposalState {
   Executed
 }
 
-describe('GovernorAlpha_Propose', () => {
+describe('GovernorAlpha Queue Test', () => {
   const provider = new MockProvider({
     ganacheOptions: {
       hardfork: 'istanbul',

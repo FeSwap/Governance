@@ -3,7 +3,7 @@ import { BigNumber, Contract, constants, Wallet } from 'ethers'
 import { solidity, MockProvider, createFixtureLoader } from 'ethereum-waffle'
 
 import { governanceFixture } from '../shares/fixtures'
-import { DELAY, mineBlock, encodeParameters, expandTo18Decimals} from '../utils'
+import { DELAY, mineBlock, encodeParameters, expandTo18Decimals} from '../shares/utils'
 
 import { Block } from "@ethersproject/abstract-provider";
 
@@ -200,10 +200,10 @@ describe('GovernorAlpha State Test', () => {
     trivialProposal = await governorAlpha.proposals(newProposalId);
     let periodtime: number = (gracePeriod as BigNumber).add(trivialProposal.eta).toNumber()
 
-    await mineBlock(provider,periodtime-1)
+    await mineBlock(provider,periodtime-2)
     expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Queued)
 
-    await governorAlpha.connect(other0).execute(newProposalId)
+    await governorAlpha.connect(other0).execute(newProposalId, overrides)
     expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Executed)
 
     await mineBlock(provider,periodtime)

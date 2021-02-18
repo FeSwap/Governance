@@ -4,8 +4,8 @@ import { solidity, MockProvider, createFixtureLoader, deployContract } from 'eth
 import { ecsign } from 'ethereumjs-util'
 import { Block } from "@ethersproject/abstract-provider";
 
-import { governanceFixture } from './fixtures'
-import { expandTo18Decimals, mineBlock, encodeParameters, advanceBlocks } from './utils'
+import { governanceFixture } from './shares/fixtures'
+import { expandTo18Decimals, mineBlock, encodeParameters, advanceBlocks } from './shares/utils'
 
 import FeswapByteCode from '../build/Fesw.json'
 
@@ -200,7 +200,9 @@ describe('Feswap', () => {
     const mintCap = BigNumber.from(await Feswa.mintCap())
     await Feswa.mint(wallet.address, mintCap)
     expect(await Feswa.balanceOf(wallet.address)).to.be.eq(supply.add(mintCap))
-    expect(await Feswa.mintingAllowedAfter()).to.be.eq(timestamp.toNumber() + 365*24*3600 + 1)
+
+    lastBlock = await provider.getBlock('latest')
+    expect(await Feswa.mintingAllowedAfter()).to.be.eq(lastBlock.timestamp + 365*24*3600)
 
     timestamp = await Feswa.mintingAllowedAfter()
     await mineBlock(provider, timestamp.toNumber())

@@ -82,9 +82,6 @@ contract GovernorAlpha {
 
         // Flag marking whether the proposal has been executed
         bool executed;
-
-//        // Receipts of ballots for the entire set of voters
-//        mapping (address => Receipt) receipts;
     }
 
     /// @notice Possible states that a proposal may be in
@@ -161,23 +158,6 @@ contract GovernorAlpha {
         newProposal.startBlock = startBlock;
         newProposal.endBlock = endBlock;
         
-//         = Proposal({
-//            id: proposalCount,
-//            proposer: msg.sender,
-//            eta: 0,
-//            targets: targets,
-//            values: values,
-//            signatures: signatures,
-//            calldatas: calldatas,
-//            startBlock: startBlock,
-//            endBlock: endBlock,
-//            forVotes: 0,
-//            againstVotes: 0,
-//            canceled: false,
-//            executed: false,
-//            receipts: {}
-//        });
-
         proposals[newProposal.id] = newProposal;
         latestProposalIds[newProposal.proposer] = newProposal.id;
 

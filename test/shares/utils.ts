@@ -1,9 +1,14 @@
 import { providers, BigNumber, utils } from 'ethers'
 
 export const DELAY = 60 * 60 * 24 * 2
+export const GRACE_PERIOD = 60 * 60 * 24 * 14
 
 export async function mineBlock(provider: providers.Web3Provider, timestamp: number): Promise<void> {
   return provider.send('evm_mine', [timestamp])
+}
+
+export async function freezeTime(provider: providers.Web3Provider, timestamp: number): Promise<void> {
+  return provider.send('evm_setTime', [timestamp])
 }
 
 export function expandTo18Decimals(n: number): BigNumber {

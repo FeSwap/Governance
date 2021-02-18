@@ -13,13 +13,13 @@ const overrides = {
   gasLimit: 9999999
 }
 
-//const DOMAIN_TYPEHASH = utils.keccak256(
-//  utils.toUtf8Bytes('EIP712Domain(string name,uint256 chainId,address verifyingContract)')
-//)
+const DOMAIN_TYPEHASH = utils.keccak256(
+  utils.toUtf8Bytes('EIP712Domain(string name,uint256 chainId,address verifyingContract)')
+)
 
-//const BALLOT_TYPEHASH = utils.keccak256(
-//  utils.toUtf8Bytes('Ballot(uint256 proposalId,bool support)')
-//)
+const BALLOT_TYPEHASH = utils.keccak256(
+  utils.toUtf8Bytes('Ballot(uint256 proposalId,bool support)')
+)
 
 describe('castVote', () => {
   const provider = new MockProvider({
@@ -51,7 +51,7 @@ describe('castVote', () => {
     timelock = fixture.timelock
     governorAlpha = fixture.governorAlpha
 
-//    await enfranchise(other0, 50)
+    await enfranchise(other0, 50)
     await Feswa.delegate(wallet.address);
     await governorAlpha.propose(targets, values, signatures, callDatas, "do nothing");
     proposalId = await governorAlpha.latestProposalIds(wallet.address);
@@ -63,16 +63,13 @@ describe('castVote', () => {
     await Feswa.connect(actor).delegate(actor.address);
   }
 
-  /*
   it("Voting block number should be between the proposal's start block (exclusive) and end block (inclusive)", async () => {
     //Voting block number should be between the proposal's start block (exclusive) and end block (inclusive)
 //    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockAAAA", lastBlock)
     await expect(governorAlpha.castVote(proposalId, true)).to.be.revertedWith('GovernorAlpha::_castVote: voting is closed')
-   })
+  })
 
-   */
-
-  it("Such proposal already has an entry in its voters set matching the sender", async () => {
+    it("Such proposal already has an entry in its voters set matching the sender", async () => {
     let timestamp = lastBlock.timestamp
     await mineBlock(provider, timestamp + 10)
     await mineBlock(provider, timestamp + 20)
@@ -193,201 +190,23 @@ describe('castVote', () => {
     });
   });
 
-//  it("receipt uses one load", async () => {
-//    await enfranchise(other0, 40_000_001)
-//    await enfranchise(other1, 40_000_001)    
-//    await governorAlpha.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
-//    proposalId = await governorAlpha.latestProposalIds(other0.address);
+  it("receipt uses one load", async () => {
+    await enfranchise(other0, 40_000_001)
+    await enfranchise(other1, 40_000_001)    
+    await governorAlpha.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
+    proposalId = await governorAlpha.latestProposalIds(other0.address);
 
-//    lastBlock = await provider.getBlock('latest')
-//    await mineBlock(provider, lastBlock.timestamp + 10)
-//    await mineBlock(provider, lastBlock.timestamp + 20)
+    lastBlock = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + 10)
+    await mineBlock(provider, lastBlock.timestamp + 20)
 
-//    const castVoteTrx0 = await governorAlpha.connect(other0).castVote(proposalId, true);
-//    const castVote0Receipt = await castVoteTrx0.wait()
-//    const castVoteTrx1 = await governorAlpha.connect(other1).castVote(proposalId, false);    
-//    const castVote1Receipt = await castVoteTrx1.wait()
+    await expect(governorAlpha.connect(other0).castVote(proposalId, true, overrides))
+          .to.emit(governorAlpha, 'VoteCast')
+          .withArgs(other0.address, proposalId, true, expandTo18Decimals(40_000_051))
 
-//    console.log(castVoteTrx0, castVote0Receipt)
-//    console.log(castVoteTrx1, castVote1Receipt)  
-//  })
-
-
-//    let afterFors = await governorAlpha.proposals(proposalId)
-//    const receipt = await castVoteBySigTrx.wait()
-//    expect(receipt.gasUsed).to.lt(85000)    
-
-//    let actor = accounts[2];e:
-
-//    let actor2 = accounts[3];
-//    await enfranchise(comp, actor, 400001);
-//    await enfranchise(comp, actor2, 400001);
-//    await send(gov, 'propose', [targets, values, signatures, callDatas, "do nothing"], { from: actor });
-//    proposalId = await call(gov, 'latestProposalIds', [actor]);
-
-//    await mineBlock();
-//    await mineBlock();
-//    await send(gov, 'castVote', [proposalId, true], { from: actor });
-//    await send(gov, 'castVote', [proposalId, false], { from: actor2 });
-
-//    let trxReceipt = await send(gov, 'getReceipt', [proposalId, actor]);
-//    let trxReceipt2 = await send(gov, 'getReceipt', [proposalId, actor2]);
-
-/*
-    await saddle.trace(trxReceipt, {
-      constants: {
-        "account": actor
-      },
-      preFilter: ({op}) => op === 'SLOAD',
-      postFilter: ({source}) => !source || source.includes('receipts'),
-      execLog: (log) => {
-        let [output] = log.outputs;
-        let votes = "000000000000000000000000000000000000000054b419003bdf81640000";
-        let voted = "01";
-        let support = "01";
-
-        expect(output).toEqual(
-          `${votes}${support}${voted}`
-        );
-      },
-      exec: (logs) => {
-        expect(logs.length).toEqual(1); // require only one read
-      }
-    });
-*/
-    /*
-    await saddle.trace(trxReceipt2, {
-      constants: {
-        "account": actor2
-      },
-      preFilter: ({op}) => op === 'SLOAD',
-      postFilter: ({source}) => !source || source.includes('receipts'),
-      execLog: (log) => {
-        let [output] = log.outputs;
-        let votes = "0000000000000000000000000000000000000000a968320077bf02c80000";
-        let voted = "01";
-        let support = "00";
-
-        expect(output).toEqual(
-          `${votes}${support}${voted}`
-        );
-      }
-    });
-*/
-
-
-
-
-  /*
-
-  it("Proposal get voted", async () => {
-    // Proposal threshold check
-    await expect(governorAlpha.connect(other0).propose(targets, values, signatures, callDatas, "do nothing"))
-          .to.be.revertedWith('GovernorAlpha::propose: proposer votes below proposal threshold')
-
-    await Feswa.transfer(other0.address, expandTo18Decimals(10_000_000)); //still less than the threshold
-    await Feswa.connect(other0).delegate(other0.address);
-
-    await expect(governorAlpha.connect(other1).propose(targets, values, signatures, callDatas, "do nothing"))
-          .to.be.revertedWith('GovernorAlpha::propose: proposer votes below proposal threshold')
-
-    await enfranchise(other0, 1) 
-    await governorAlpha.connect(other1).propose(targets, values, signatures, callDatas, "do nothing")
-    proposalId = await governorAlpha.latestProposalIds(wallet.address);
-
-    let receipt = await governorAlpha.getReceipt(proposalId, other0.address)
-    expect(receipt.hasVoted).to.be.equal(false)
-
-    await governorAlpha.connect(other0).castVote(proposalId, true);
-
-    receipt = await governorAlpha.getReceipt(proposalId, other0.address)
-    expect(receipt.hasVoted).to.be.equal(true)
-    expect(receipt.support).to.be.equal(true)
-    expect(receipt.votes).to.be.equal(expandTo18Decimals(50))
-    
-    //cannot vote twice
-    await expect(governorAlpha.connect(other0).castVote(proposalId, true))
-          .to.be.revertedWith('GovernorAlpha::_castVote: voter already voted')
-
-          actor = accounts[1];
-          await enfranchise(comp, actor, 400001);
-  
-          await send(gov, 'propose', [targets, values, signatures, callDatas, "do nothing"], { from: actor });
-          proposalId = await call(gov, 'latestProposalIds', [actor]);
-  
-          let beforeFors = (await call(gov, 'proposals', [proposalId])).forVotes;
-          await mineBlock();
-          await send(gov, 'castVote', [proposalId, true], { from: actor });
-  
-          let afterFors = (await call(gov, 'proposals', [proposalId])).forVotes;
-          expect(new BigNumber(afterFors)).toEqual(new BigNumber(beforeFors).plus(etherMantissa(400001)));
-
-  })
-
-  */
-
-  describe("Otherwise", () => {
-
-
-/*
-
-    it("receipt uses one load", async () => {
-      let actor = accounts[2];
-      let actor2 = accounts[3];
-      await enfranchise(comp, actor, 400001);
-      await enfranchise(comp, actor2, 400001);
-      await send(gov, 'propose', [targets, values, signatures, callDatas, "do nothing"], { from: actor });
-      proposalId = await call(gov, 'latestProposalIds', [actor]);
-
-      await mineBlock();
-      await mineBlock();
-      await send(gov, 'castVote', [proposalId, true], { from: actor });
-      await send(gov, 'castVote', [proposalId, false], { from: actor2 });
-
-      let trxReceipt = await send(gov, 'getReceipt', [proposalId, actor]);
-      let trxReceipt2 = await send(gov, 'getReceipt', [proposalId, actor2]);
-
-      await saddle.trace(trxReceipt, {
-        constants: {
-          "account": actor
-        },
-        preFilter: ({op}) => op === 'SLOAD',
-        postFilter: ({source}) => !source || source.includes('receipts'),
-        execLog: (log) => {
-          let [output] = log.outputs;
-          let votes = "000000000000000000000000000000000000000054b419003bdf81640000";
-          let voted = "01";
-          let support = "01";
-
-          expect(output).toEqual(
-            `${votes}${support}${voted}`
-          );
-        },
-        exec: (logs) => {
-          expect(logs.length).toEqual(1); // require only one read
-        }
-      });
-
-      await saddle.trace(trxReceipt2, {
-        constants: {
-          "account": actor2
-        },
-        preFilter: ({op}) => op === 'SLOAD',
-        postFilter: ({source}) => !source || source.includes('receipts'),
-        execLog: (log) => {
-          let [output] = log.outputs;
-          let votes = "0000000000000000000000000000000000000000a968320077bf02c80000";
-          let voted = "01";
-          let support = "00";
-
-          expect(output).toEqual(
-            `${votes}${support}${voted}`
-          );
-        }
-      });
-    })
-
-    */
+    await expect(governorAlpha.connect(other1).castVote(proposalId, false, overrides))
+          .to.emit(governorAlpha, 'VoteCast')
+          .withArgs(other1.address, proposalId, false, expandTo18Decimals(40_000_001))     
   })
 
 })

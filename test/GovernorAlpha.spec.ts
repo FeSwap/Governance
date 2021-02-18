@@ -2,8 +2,8 @@ import chai, { expect } from 'chai'
 import { Contract, constants } from 'ethers'
 import { solidity, MockProvider, createFixtureLoader } from 'ethereum-waffle'
 
-import { governanceFixture } from './fixtures'
-import { DELAY } from './utils'
+import { governanceFixture } from './shares/fixtures'
+import { DELAY } from './shares/utils'
 
 chai.use(solidity)
 
@@ -45,7 +45,8 @@ describe('GovernorAlpha', () => {
 
   it('governor', async () => {
     const votingPeriod = await governorAlpha.votingPeriod()
-    expect(votingPeriod).to.be.eq(40320)
+//    expect(votingPeriod).to.be.eq(40320)
+    expect(votingPeriod).to.be.eq(5)        // for Testing
     const timelockAddress = await governorAlpha.timelock()
     expect(timelockAddress).to.be.eq(timelock.address)
     const FeswaFromGovernor = await governorAlpha.Feswa()
