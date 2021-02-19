@@ -58,14 +58,14 @@ contract FeeTo {
 
     function renounce(address pair) public returns (uint value) {
         PairAllowState storage pairAllowState = pairAllowStates[pair];
-        TokenAllowState storage token0AllowState = tokenAllowStates[IFeswPair(pair).token0()];
-        TokenAllowState storage token1AllowState = tokenAllowStates[IFeswPair(pair).token1()];
+        TokenAllowState storage token0AllowState = tokenAllowStates[IFeswPair(pair).tokenIn()];
+        TokenAllowState storage token1AllowState = tokenAllowStates[IFeswPair(pair).tokenOut()];
 
         // we must renounce if any of the following four conditions are true:
-        // 1) token0 is currently disallowed
-        // 2) token1 is currently disallowed
-        // 3) token0 was disallowed at least once since the last time renounce was called
-        // 4) token1 was disallowed at least once since the last time renounce was called
+        // 1) tokenIn is currently disallowed
+        // 2) tokenOut is currently disallowed
+        // 3) tokenIn was disallowed at least once since the last time renounce was called
+        // 4) tokenOut was disallowed at least once since the last time renounce was called
         if (
             token0AllowState.allowed == false ||
             token1AllowState.allowed == false ||
@@ -80,11 +80,11 @@ contract FeeTo {
                 IFeswPair(pair).burn(pair);
             }
 
-            // if token0 is allowed, we can now update the pair's disallow count to match the token's
+            // if tokenIn is allowed, we can now update the pair's disallow count to match the token's
             if (token0AllowState.allowed) {
                 pairAllowState.token0DisallowCount = token0AllowState.disallowCount;
             }
-            // if token1 is allowed, we can now update the pair's disallow count to match the token's
+            // if tokenOut is allowed, we can now update the pair's disallow count to match the token's
             if (token1AllowState.allowed) {
                 pairAllowState.token1DisallowCount = token1AllowState.disallowCount;
             }
@@ -93,14 +93,14 @@ contract FeeTo {
 
     function claim(address pair) public returns (uint value) {
         PairAllowState storage pairAllowState = pairAllowStates[pair];
-        TokenAllowState storage token0AllowState = tokenAllowStates[IFeswPair(pair).token0()];
-        TokenAllowState storage token1AllowState = tokenAllowStates[IFeswPair(pair).token1()];
+        TokenAllowState storage token0AllowState = tokenAllowStates[IFeswPair(pair).tokenIn()];
+        TokenAllowState storage token1AllowState = tokenAllowStates[IFeswPair(pair).tokenOut()];
 
         // we may claim only if each of the following five conditions are true:
-        // 1) token0 is currently allowed
-        // 2) token1 is currently allowed
-        // 3) renounce was not called since the last time token0 was disallowed
-        // 4) renounce was not called since the last time token1 was disallowed
+        // 1) tokenIn is currently allowed
+        // 2) tokenOut is currently allowed
+        // 3) renounce was not called since the last time tokenIn was disallowed
+        // 4) renounce was not called since the last time tokenOut was disallowed
         // 5) feeHandler is not the 0 address
         if (
             token0AllowState.allowed &&
@@ -119,8 +119,8 @@ contract FeeTo {
 }
 
 interface IFeswPair {
-    function token0() external view returns (address);
-    function token1() external view returns (address);
+    function tokenIn() external view returns (address);
+    function tokenOut() external view returns (address);
     function balanceOf(address owner) external view returns (uint);
     function transfer(address to, uint value) external returns (bool);
     function burn(address to) external returns (uint amount0, uint amount1);

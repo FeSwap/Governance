@@ -81,7 +81,7 @@ describe('scenario:FeeToSetter', () => {
 
   it('toggleFees', async () => {
     let feeTo = await factory.feeTo()
-    expect(feeTo).to.be.eq(constants.AddressZero)
+    expect(feeTo).to.be.eq(wallet.address)
 
     await mineBlock(provider, vestingEnd)
 

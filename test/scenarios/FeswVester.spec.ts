@@ -54,14 +54,14 @@ describe('scenario:TreasuryVester', () => {
 
   it('setRecipient:fail', async () => {
     await expect(treasuryVester.setRecipient(wallet.address)).to.be.revertedWith(
-      'TreasuryVester::setRecipient: unauthorized'
+      'FeswVester::setRecipient: unauthorized'
     )
   })
 
   it('claim:fail', async () => {
-    await expect(treasuryVester.claim()).to.be.revertedWith('TreasuryVester::claim: not time yet')
-    await mineBlock(provider, vestingBegin + 1)
-    await expect(treasuryVester.claim()).to.be.revertedWith('TreasuryVester::claim: not time yet')
+    await expect(treasuryVester.claim()).to.be.revertedWith('FeswVester::claim: not time yet')
+    await mineBlock(provider, vestingCliff - 1)
+    await expect(treasuryVester.claim()).to.be.revertedWith('FeswVester::claim: not time yet')
   })
 
   it('claim:~half', async () => {
@@ -72,6 +72,12 @@ describe('scenario:TreasuryVester', () => {
   })
 
   it('claim:all', async () => {
+    await mineBlock(provider, vestingBegin + Math.floor((vestingEnd - vestingBegin) / 4))
+    await treasuryVester.claim()
+    await mineBlock(provider, vestingBegin + Math.floor((vestingEnd - vestingBegin) / 3))
+    await treasuryVester.claim()
+    await mineBlock(provider, vestingBegin + Math.floor(2* (vestingEnd - vestingBegin) / 3))
+    await treasuryVester.claim()
     await mineBlock(provider, vestingEnd)
     await treasuryVester.claim()
     const balance = await Feswa.balanceOf(timelock.address)
