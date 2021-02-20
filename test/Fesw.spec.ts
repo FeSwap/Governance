@@ -5,7 +5,7 @@ import { ecsign } from 'ethereumjs-util'
 import { Block } from "@ethersproject/abstract-provider";
 
 import { governanceFixture } from './shares/fixtures'
-import { expandTo18Decimals, mineBlock, encodeParameters, advanceBlocks } from './shares/utils'
+import { expandTo18Decimals, mineBlock, encodeParameters } from './shares/utils'
 
 import FeswapByteCode from '../build/Fesw.json'
 
