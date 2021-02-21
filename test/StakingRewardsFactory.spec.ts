@@ -9,6 +9,10 @@ import StakingRewards from '../build/StakingRewards.json'
 
 chai.use(solidity)
 
+const overrides = {
+  gasLimit: 9999999
+}
+
 describe('StakingRewardsFactory', () => {
   const provider = new MockProvider({
     ganacheOptions: {
@@ -37,7 +41,7 @@ describe('StakingRewardsFactory', () => {
 
   it('deployment gas', async () => {
     const receipt = await provider.getTransactionReceipt(stakingRewardsFactory.deployTransaction.hash)
-    expect(receipt.gasUsed).to.eq('2150169')          // 2080815
+    expect(receipt.gasUsed).to.eq('2155113')          // 2080815
   })
 
   describe('#deploy', () => {
@@ -168,7 +172,16 @@ describe('StakingRewardsFactory', () => {
       it('succeeds when has sufficient balance and after genesis time', async () => {
         await rewardsToken.transfer(stakingRewardsFactory.address, totalRewardAmount)
         await mineBlock(provider, genesis)
-        await stakingRewardsFactory.notifyRewardAmounts()
+        await stakingRewardsFactory.notifyRewardAmounts(overrides)
+
+        // refill
+        for (let i = 0; i < stakingTokens.length; i++) {
+          await stakingRewardsFactory.deploy(stakingTokens[i].address, rewardAmounts[i])
+        }
+
+        await rewardsToken.transfer(stakingRewardsFactory.address, totalRewardAmount)
+        await mineBlock(provider, genesis)
+        await stakingRewardsFactory.notifyRewardAmounts(overrides)
       })
     })
   })
