@@ -2,7 +2,7 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "./SafeMath.sol";
+import "./utils/SafeMath.sol";
 
 contract Fesw {
     /// @notice EIP-20 token name for this token

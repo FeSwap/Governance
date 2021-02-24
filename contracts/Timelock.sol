@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.7.0;
 
-import "./SafeMath.sol";
+import "./utils/SafeMath.sol";
 
 contract Timelock {
     using SafeMath for uint;
