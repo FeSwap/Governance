@@ -679,13 +679,18 @@ describe('FeswaPairForSale', () => {
       expect(await FeswaBid.ownerOf(tokenIDMatchBC)).to.be.eq(other0.address)    
     })
 
-/*    
     it('IERC721: safeTransferFrom()', async () => {
-      await FeswaBid.safeTransferFrom(wallet.address, other0.address, tokenIDMatchAB)
-      await FeswaBid.safeTransferFrom(wallet.address, other1.address, tokenIDMatchAC,'0x')
-      await FeswaBid.connect(other0).safeTransferFrom(other0.address, other1.address, tokenIDMatchBC)     
+      await FeswaBid['safeTransferFrom(address,address,uint256)'](wallet.address, other0.address, tokenIDMatchAB)
+      await FeswaBid['safeTransferFrom(address,address,uint256)'](wallet.address, other1.address, tokenIDMatchAC)
+      await FeswaBid.connect(other0)['safeTransferFrom(address,address,uint256)'](other0.address, other1.address, tokenIDMatchBC)     
     })
-*/
+
+    it('IERC721: safeTransferFrom with data', async () => {
+      await FeswaBid['safeTransferFrom(address,address,uint256,bytes)'](wallet.address, other0.address, tokenIDMatchAB, '0x')
+      await FeswaBid['safeTransferFrom(address,address,uint256,bytes)'](wallet.address, other1.address, tokenIDMatchAC, '0x')
+      await FeswaBid.connect(other0)['safeTransferFrom(address,address,uint256,bytes)'](other0.address, other1.address, tokenIDMatchBC, '0x')     
+    })
+
     it('IERC721: transferFrom()', async () => {
       await FeswaBid.transferFrom(wallet.address, other1.address, tokenIDMatchAB)
       await FeswaBid.connect(other0).transferFrom(other0.address, other1.address, tokenIDMatchBC)
