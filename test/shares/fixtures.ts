@@ -51,16 +51,20 @@ interface FeswaBidFixture {
 }
 
 export async function feswaBidFixture(
-  [wallet]: Wallet[],
+  [wallet, other0]: Wallet[],
   provider: providers.Web3Provider
 ): Promise<FeswaBidFixture> {
-  // deploy FeSwap NFT contract
-  // deploy governorAlpha
+  // deploy FeSwap, sending the total supply to the deployer
   const { timestamp: now } = await provider.getBlock('latest')
-  const FeswaBid = await deployContract(wallet, FeswaBidCode, [initPoolPrice, BidStartTime, "Feswap Pair Bid NFT", "FESN"])
+  const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60])
+
+  // deploy FeSwap NFT contract
+  const FeswaBid = await deployContract(wallet, FeswaBidCode, [Feswa.address, initPoolPrice, BidStartTime])
 
   const Token0 = await deployContract(wallet, TestERC20, ['Test ERC20 A', 'TKA', expandTo18Decimals(1000_000)])
   const Token1 = await deployContract(wallet, TestERC20, ['Test ERC20 B', 'TKB', expandTo18Decimals(1000_000)])
+
+  await Feswa.transfer(FeswaBid.address, expandTo18Decimals(1000_000))
 
   // Token A address is always less than Token B addess for testing 
   if(Token0.address.toLowerCase() <= Token1.address.toLowerCase() ) {

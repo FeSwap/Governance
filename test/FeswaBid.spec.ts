@@ -16,6 +16,8 @@ const overrides = {
 
 enum PoolRunningPhase {
   BidPhase, 
+  BidDelaying,
+  BidConfirmed,
   PoolActivated, 
   PoolHolding, 
   PoolForSale
@@ -24,6 +26,8 @@ enum PoolRunningPhase {
 const initPoolPrice = expandTo18Decimals(1).div(2)
 const BidStartTime: number = 1615338000   // 2021/02/22 03/10 9:00
 const OPEN_BID_DURATION: number =  (3600 * 24 * 14)
+const CLOSE_BID_DELAY: number =  (3600 * 2)
+
 
 describe('FeswaBid', () => {
   const provider = new MockProvider({
@@ -34,7 +38,7 @@ describe('FeswaBid', () => {
     },
   })
   const [wallet, other0, other1] = provider.getWallets()
-  const loadFixture = createFixtureLoader([wallet], provider)
+  const loadFixture = createFixtureLoader([wallet, other0], provider)
 
   let TokenA: Contract
   let TokenB: Contract
@@ -55,7 +59,7 @@ describe('FeswaBid', () => {
   */
 
   it('BidFeswaPair: Basic Checking of Init Bit Price, Bid start Time, name, symbol, ', async () => {
-    expect(await FeswaBid.name()).to.eq('Feswap Pair Bid NFT')
+    expect(await FeswaBid.name()).to.eq('Feswap Pool NFT')
     expect(await FeswaBid.symbol()).to.eq('FESN')
     expect(await FeswaBid.PriceLowLimit()).to.eq(initPoolPrice)
     expect(await FeswaBid.SaleStartTime()).to.eq(BidStartTime)
@@ -85,6 +89,21 @@ describe('FeswaBid', () => {
             .withArgs(TokenA.address, TokenB.address, tokenIDMatch)
     
     expect(await provider.getBalance(FeswaBid.address)).to.eq(initPoolPrice)        
+  })
+
+  it('BidFeswaPair: New NFT creation with price more than PriceLowLimit', async () => {
+    await mineBlock(provider, BidStartTime + 1)
+    const tokenIDMatch = utils.keccak256( 
+                                utils.solidityPack( ['address', 'address', 'address'],
+                                                    [FeswaBid.address, TokenA.address, TokenB.address] ) )
+    await expect(FeswaBid.BidFeswaPair(TokenA.address, TokenB.address, other0.address,
+                    { ...overrides, value: initPoolPrice.mul(2) } ))
+            .to.emit(FeswaBid,'Transfer')
+            .withArgs(constants.AddressZero, other0.address, tokenIDMatch)
+            .to.emit(FeswaBid,'PairCreadted')
+            .withArgs(TokenA.address, TokenB.address, tokenIDMatch)
+    
+    expect(await provider.getBalance(FeswaBid.address)).to.eq(initPoolPrice.mul(2))        
   })
 
   it('BidFeswaPair: NFT list content checking', async () => {
@@ -249,6 +268,233 @@ describe('FeswaBid', () => {
 
 })
 
+describe('BidFeswaState: State Change test', () => {
+  const provider = new MockProvider({
+    ganacheOptions: {
+      hardfork: 'istanbul',
+      mnemonic: 'horn horn horn horn horn horn horn horn horn horn horn horn',
+      gasLimit: 9999999,
+    },
+  })
+  const [wallet, other0, other1] = provider.getWallets()
+  const loadFixture = createFixtureLoader([wallet, other0], provider)
+
+  let TokenA: Contract
+  let TokenB: Contract
+  let FeswaBid: Contract
+
+  beforeEach('load fixture', async () => {
+    const fixture = await loadFixture(feswaBidFixture)
+    TokenA = fixture.TokenA
+    TokenB = fixture.TokenB    
+    FeswaBid = fixture.FeswaBid
+  })
+
+  it('BidFeswaState: Not enter daley duration 2 hours before end of 2-week duratoin', async () => {
+    await mineBlock(provider, BidStartTime + 1)
+    const tokenIDMatch = utils.keccak256( 
+                                utils.solidityPack( ['address', 'address', 'address'],
+                                                    [FeswaBid.address, TokenA.address, TokenB.address] ) )
+    await FeswaBid.BidFeswaPair(TokenA.address, TokenB.address, wallet.address,
+                                { ...overrides, value: initPoolPrice } )
+
+    let lastBlock = await provider.getBlock('latest')
+    let creatTime = lastBlock.timestamp
+    await mineBlock(provider, lastBlock.timestamp + OPEN_BID_DURATION - CLOSE_BID_DELAY -1 )    
+    await FeswaBid.connect(other0).BidFeswaPair(TokenA.address, TokenB.address, other0.address,
+                                { ...overrides, value: initPoolPrice.mul(2) } )
+
+    let NewFeswaPair= await FeswaBid.listPools(tokenIDMatch)   
+    expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
+    expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
+    expect(NewFeswaPair.timeCreated).to.deep.equal(creatTime)
+    expect(NewFeswaPair.lastBidTime).to.deep.equal(creatTime + OPEN_BID_DURATION - CLOSE_BID_DELAY -1)
+    expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.BidPhase)
+    expect(NewFeswaPair.currentPrice).to.deep.equal(initPoolPrice.mul(2))    
+
+    // enter delaying state
+    await mineBlock(provider, creatTime + OPEN_BID_DURATION - CLOSE_BID_DELAY )    
+    await FeswaBid.connect(other1).BidFeswaPair(TokenA.address, TokenB.address, other1.address,
+                               { ...overrides, value: initPoolPrice.mul(3) } )
+
+    NewFeswaPair= await FeswaBid.listPools(tokenIDMatch) 
+    expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
+    expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
+    expect(NewFeswaPair.timeCreated).to.deep.equal(creatTime)
+    expect(NewFeswaPair.lastBidTime).to.deep.equal(creatTime + OPEN_BID_DURATION - CLOSE_BID_DELAY)
+    expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.BidDelaying)
+    expect(NewFeswaPair.currentPrice).to.deep.equal(initPoolPrice.mul(3))    
+
+    // enter delaying state
+    lastBlock = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + CLOSE_BID_DELAY )    
+    await FeswaBid.connect(other1).BidFeswaPair(TokenA.address, TokenB.address, other1.address,
+                               { ...overrides, value: initPoolPrice.mul(4) } )
+                              
+    // delaying again at last second
+    NewFeswaPair= await FeswaBid.listPools(tokenIDMatch) 
+    expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
+    expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
+    expect(NewFeswaPair.timeCreated).to.deep.equal(creatTime)
+    expect(NewFeswaPair.lastBidTime).to.deep.equal(lastBlock.timestamp + CLOSE_BID_DELAY)
+    expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.BidDelaying)
+    expect(NewFeswaPair.currentPrice).to.deep.equal(initPoolPrice.mul(4))    
+
+    // overflow the maximum delaying
+    lastBlock = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + CLOSE_BID_DELAY + 1)    
+    await expect(FeswaBid.connect(other1).BidFeswaPair(TokenA.address, TokenB.address, other1.address,
+                               { ...overrides, value: initPoolPrice.mul(5) } ))
+                  .to.be.revertedWith('FESN: BID TOO LATE')
+  })
+
+  it('BidFeswaState: NFT Normal creation, and address are swapped', async () => {
+    // Normal creation
+    await mineBlock(provider, BidStartTime + 1)
+    const tokenIDMatch = utils.keccak256( 
+                                utils.solidityPack( ['address', 'address', 'address'],
+                                                    [FeswaBid.address, TokenA.address, TokenB.address] ) )
+
+    await expect(FeswaBid.BidFeswaPair(TokenB.address, TokenA.address, other0.address,
+                    { ...overrides, value: initPoolPrice } ))
+            .to.emit(FeswaBid,'Transfer')
+            .withArgs(constants.AddressZero, other0.address, tokenIDMatch)
+  })
+
+  it('BidFeswaState: Checking for minimum 10% increacement', async () => {         
+    // Normal creation
+    await mineBlock(provider, BidStartTime + 1)
+    await FeswaBid.BidFeswaPair(TokenA.address, TokenB.address, wallet.address,
+                                { ...overrides, value: initPoolPrice } )                       
+    // Checking minimum 10% price increase
+    const newPoolPrice = initPoolPrice.mul(11).div(10)
+    await expect(FeswaBid.connect(other0).BidFeswaPair(TokenA.address, TokenB.address, other0.address,
+                                { ...overrides, value: newPoolPrice.sub(1) } ) )
+            .to.be.revertedWith('FESN: PAY LESS')
+  })       
+  
+  it('BidFeswaState: Checking Bid duration', async () => {         
+    // Normal creation
+    await mineBlock(provider, BidStartTime + 1)
+    await FeswaBid.BidFeswaPair(TokenA.address, TokenB.address, wallet.address,
+                                { ...overrides, value: initPoolPrice } )   
+
+    // Check the 2 week bid duaration/
+    const lastBlock = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + OPEN_BID_DURATION)                                
+                                
+    // Checking minimum 10% price increase
+    const newPoolPrice = initPoolPrice.mul(11).div(10)
+    await expect(FeswaBid.connect(other0).BidFeswaPair(TokenA.address, TokenB.address, other0.address,
+                                { ...overrides, value: newPoolPrice } ) )
+            .to.be.revertedWith('FESN: BID TOO LATE')
+  }) 
+  
+  it('BidFeswaState: Checking 10% price increase ', async () => {         
+    // Normal creation
+    await mineBlock(provider, BidStartTime + 1)
+    const tokenIDMatch = utils.keccak256( 
+                                utils.solidityPack( ['address', 'address', 'address'],
+                                                    [FeswaBid.address, TokenA.address, TokenB.address] ) )
+    
+    await FeswaBid.BidFeswaPair(TokenA.address, TokenB.address, wallet.address,
+                                { ...overrides, value: initPoolPrice } )                       
+    // get the wallet value                             
+    const FeswaBidBalance = await provider.getBalance(FeswaBid.address)
+    const WalletBalance = await provider.getBalance(wallet.address)  
+    const newPoolPrice = initPoolPrice.mul(11).div(10)
+                                
+    // Normal bidding with 'Transfer' event
+    await mineBlock(provider, BidStartTime + 10)     
+    await expect(FeswaBid.connect(other0).BidFeswaPair(TokenA.address, TokenB.address, other0.address,
+                                { ...overrides, value: newPoolPrice } ) )
+            .to.emit(FeswaBid,'Transfer')
+            .withArgs(wallet.address, other0.address, tokenIDMatch)  
+    
+    // Check the Bit Contract balance         
+    expect(await provider.getBalance(FeswaBid.address)).to.be.eq(FeswaBidBalance
+            .add(newPoolPrice.sub(initPoolPrice).mul(9).div(10)))
+
+    // Check the first Bidder balance increasement        
+    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance
+            .add(initPoolPrice).add(newPoolPrice.sub(initPoolPrice).div(10)))
+  })
+
+  it('BidFeswaState: Checking 50% price increase ', async () => {         
+    // Normal creation
+    await mineBlock(provider, BidStartTime + 1)
+    const tokenIDMatch = utils.keccak256( 
+                                utils.solidityPack( ['address', 'address', 'address'],
+                                                    [FeswaBid.address, TokenA.address, TokenB.address] ) )
+    
+    await FeswaBid.BidFeswaPair(TokenA.address, TokenB.address, wallet.address,
+                                { ...overrides, value: initPoolPrice } )                       
+    // get the wallet value                             
+    const FeswaBidBalance = await provider.getBalance(FeswaBid.address)
+    const WalletBalance = await provider.getBalance(wallet.address)  
+    const newPoolPrice = initPoolPrice.mul(15).div(10)
+                                
+    // Normal bidding with 'Transfer' event
+    await mineBlock(provider, BidStartTime + 10)     
+    await expect(FeswaBid.connect(other1).BidFeswaPair(TokenA.address, TokenB.address, other1.address,
+                                { ...overrides, value: newPoolPrice } ) )
+            .to.emit(FeswaBid,'Transfer')
+            .withArgs(wallet.address, other1.address, tokenIDMatch)  
+    
+    // Check the Bit Contract balance         
+    expect(await provider.getBalance(FeswaBid.address)).to.be.eq(FeswaBidBalance
+            .add(newPoolPrice.sub(initPoolPrice).mul(9).div(10)))
+
+    // Check the first Bidder balance increasement        
+    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance
+            .add(initPoolPrice).add(newPoolPrice.sub(initPoolPrice).div(10)))
+  })
+
+  it('BidFeswaState: Checking for Bid with more than 10% higher price', async () => {
+    // Normal creation
+    await mineBlock(provider, BidStartTime + 1)
+    const tokenIDMatch = utils.keccak256( 
+                                utils.solidityPack( ['address', 'address', 'address'],
+                                                    [FeswaBid.address, TokenA.address, TokenB.address] ) )
+
+    await FeswaBid.BidFeswaPair(TokenA.address, TokenB.address, wallet.address,
+                                { ...overrides, value: initPoolPrice } )
+                               
+    // Checking minimum 10% price increase
+    const newPoolPrice1 = initPoolPrice.mul(11).div(10)
+   
+    // Normal bidding with 'Transfer' event
+    await mineBlock(provider, BidStartTime + 10)     
+    await FeswaBid.connect(other0).BidFeswaPair(TokenA.address, TokenB.address, other0.address,
+                                { ...overrides, value: newPoolPrice1 } )
+
+    // get the wallet value                             
+    const FeswaBidBalance = await provider.getBalance(FeswaBid.address)
+    const other0Balance = await provider.getBalance(other0.address)
+
+    // Checking minimum 10% price increase
+    const newPoolPrice2 = newPoolPrice1.mul(15).div(10)
+
+    // Normal bidding with 'Transfer' event
+    await mineBlock(provider, BidStartTime + 20)     
+    await expect(FeswaBid.connect(other1).BidFeswaPair(TokenB.address, TokenA.address, other1.address,
+                                { ...overrides, value: newPoolPrice2 } ) )
+            .to.emit(FeswaBid,'Transfer')
+            .withArgs(other0.address, other1.address, tokenIDMatch)  
+    
+    // Check the Bit Contract balance       
+    expect(await provider.getBalance(FeswaBid.address)).to.be.eq(FeswaBidBalance
+            .add((newPoolPrice2.sub(newPoolPrice1)).mul(9).div(10)))
+
+    // Check the first Bidder balance increasement
+    expect(await provider.getBalance(other0.address)).to.be.eq(other0Balance
+            .add(newPoolPrice1).add(newPoolPrice2.sub(newPoolPrice1).div(10)))            
+
+  })
+
+})
+
+
 describe('FeswaPairForSale', () => {
   const provider = new MockProvider({
     ganacheOptions: {
@@ -258,7 +504,7 @@ describe('FeswaPairForSale', () => {
     },
   })
   const [wallet, other0, other1] = provider.getWallets()
-  const loadFixture = createFixtureLoader([wallet], provider)
+  const loadFixture = createFixtureLoader([wallet, other0], provider)
 
   let TokenA: Contract
   let TokenB: Contract
@@ -326,7 +572,7 @@ describe('FeswaPairForSale', () => {
       },
     })
     const [wallet, other0, other1] = provider.getWallets()
-    const loadFixture = createFixtureLoader([wallet], provider)
+    const loadFixture = createFixtureLoader([wallet, other0], provider)
   
     let TokenA: Contract
     let TokenB: Contract
@@ -448,7 +694,7 @@ describe('FeswaPairForSale', () => {
       },
     })
     const [wallet, other0, other1] = provider.getWallets()
-    const loadFixture = createFixtureLoader([wallet], provider)
+    const loadFixture = createFixtureLoader([wallet, other0], provider)
   
     let TokenA: Contract
     let TokenB: Contract
@@ -492,7 +738,7 @@ describe('FeswaPairForSale', () => {
       },
     })
     const [wallet, other0, other1] = provider.getWallets()
-    const loadFixture = createFixtureLoader([wallet], provider)
+    const loadFixture = createFixtureLoader([wallet,other0], provider)
   
     let TokenA: Contract
     let TokenB: Contract
@@ -534,7 +780,7 @@ describe('FeswaPairForSale', () => {
       },
     })
     const [wallet, other0, other1] = provider.getWallets()
-    const loadFixture = createFixtureLoader([wallet], provider)
+    const loadFixture = createFixtureLoader([wallet, other0], provider)
   
     let TokenA: Contract
     let TokenB: Contract
@@ -582,7 +828,7 @@ describe('FeswaPairForSale', () => {
       },
     })
     const [wallet, other0, other1] = provider.getWallets()
-    const loadFixture = createFixtureLoader([wallet], provider)
+    const loadFixture = createFixtureLoader([wallet, other0], provider)
   
     let TokenA: Contract
     let TokenB: Contract
@@ -649,7 +895,7 @@ describe('FeswaPairForSale', () => {
     })
 
     it('IERC721Metadata: name()', async () => {
-      expect(await FeswaBid.name()).to.be.eq('Feswap Pair Bid NFT')    
+      expect(await FeswaBid.name()).to.be.eq('Feswap Pool NFT')    
     })
 
     it('IERC721Metadata: symbol()', async () => {
