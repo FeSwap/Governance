@@ -41,12 +41,13 @@ export async function governanceFixture(
   return { Feswa, timelock, governorAlpha }
 }
 
-const initPoolPrice = expandTo18Decimals(1).div(2)
+const initPoolPrice = expandTo18Decimals(1).div(5)
 const BidStartTime: number = 1615338000   // 2021/02/22 03/10 9:00
 
 interface FeswaBidFixture {
   TokenA:   Contract
   TokenB:   Contract
+  Feswa:    Contract
   FeswaBid: Contract
 }
 
@@ -68,8 +69,8 @@ export async function feswaBidFixture(
 
   // Token A address is always less than Token B addess for testing 
   if(Token0.address.toLowerCase() <= Token1.address.toLowerCase() ) {
-    return { TokenA: Token0, TokenB: Token1, FeswaBid }
+    return { TokenA: Token0, TokenB: Token1, Feswa, FeswaBid }
   } else {
-    return { TokenA: Token1, TokenB: Token0, FeswaBid }
+    return { TokenA: Token1, TokenB: Token0, Feswa, FeswaBid }
   }
 }

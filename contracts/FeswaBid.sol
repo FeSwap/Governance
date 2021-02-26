@@ -39,13 +39,16 @@ contract FeswaBid is ERC721, Ownable {
     uint256 public constant CLOSE_BID_DELAY = (3600 * 2);           
 
     // Airdrop for the first tender: 1000 FEST
-    uint256 public constant AIRDROP_FOR_FIRST = 1000;  
+    uint256 public constant AIRDROP_FOR_FIRST = 1000e18;  
 
     // Airdrop for the next tender: 500 FEST
-    uint256 public constant AIRDROP_FOR_NEXT = 500;  
+    uint256 public constant AIRDROP_FOR_NEXT = 500e18;  
 
     // Airdrop rate for Bid winner: 20000 FEST/ETH
     uint256 public constant AIRDROP_RATE_FOR_WINNER = 20000;    
+
+    // Minimum price increase for tender: 0.1ETH
+    uint256 public constant MINIMUM_PRICE_INCREACE = 1e17;    
 
     // contract of Feswap Token
     address public FeswapToken;       
@@ -65,7 +68,7 @@ contract FeswaBid is ERC721, Ownable {
     enum PoolRunningPhase {
         BidPhase, 
         BidDelaying,
-        BidConfirmed,
+        BidSettled,
         PoolActivated, 
         PoolHolding, 
         PoolForSale
@@ -97,9 +100,10 @@ contract FeswaBid is ERC721, Ownable {
         if(_exists(tokenID )){
             FeswaPair storage pairInfo = listPools[tokenID]; 
             require(msg.value >= pairInfo.currentPrice.mul(11).div(10), 'FESN: PAY LESS');  // minimum 10% increase
+            require(msg.value >= pairInfo.currentPrice.add(MINIMUM_PRICE_INCREACE), 'FESN: PAY LESS');  // minimum 10% increase
 
             if(pairInfo.poolState == PoolRunningPhase.BidPhase){
-                require(block.timestamp < pairInfo.timeCreated + OPEN_BID_DURATION, 'FESN: BID TOO LATE');  // Bid keep open for two weeks
+                require(block.timestamp <= pairInfo.timeCreated + OPEN_BID_DURATION, 'FESN: BID TOO LATE');  // Bid keep open for two weeks
                 if(block.timestamp >= (pairInfo.timeCreated + OPEN_BID_DURATION - CLOSE_BID_DELAY)) {
                     pairInfo.poolState = PoolRunningPhase.BidDelaying;
                 }
@@ -146,16 +150,41 @@ contract FeswaBid is ERC721, Ownable {
     }
 
     /**
+     * @dev Settle the bid for the swap pair. 
+     */
+    function FeswaPairSettle(uint256 tokenID) external {
+        require(msg.sender == ownerOf(tokenID), 'FESN: NOT TOKEN OWNER');
+        
+        FeswaPair storage pairInfo = listPools[tokenID]; 
+        if(pairInfo.poolState == PoolRunningPhase.BidPhase){
+            require(block.timestamp > pairInfo.timeCreated + OPEN_BID_DURATION, 'FESN: BID ON GOING');  
+        } else {
+            require(pairInfo.poolState == PoolRunningPhase.BidDelaying, 'FESN: BID COMPLETED'); 
+            require(block.timestamp > pairInfo.lastBidTime + CLOSE_BID_DELAY, 'FESN: BID ON GOING');
+        }
+
+        pairInfo.poolState = PoolRunningPhase.BidSettled;
+
+        // Airdrop to the first tender
+        TransferHelper.safeTransfer(FeswapToken, msg.sender, pairInfo.currentPrice.mul(AIRDROP_RATE_FOR_WINNER));
+    }    
+
+    /**
      * @dev Sell the Pair with the specified Price. 
      */
     function FeswaPairForSale(uint256 tokenID, uint256 pairPrice) external returns (uint256 newPrice) {
-        require(msg.sender == ownerOf(tokenID), 'FESN: Not the token Owner');
+        require(msg.sender == ownerOf(tokenID), 'FESN: NOT TOKEN OWNER');
         
         FeswaPair storage pairInfo = listPools[tokenID]; 
-        require(block.timestamp >= pairInfo.timeCreated + OPEN_BID_DURATION, 'FESN: Bid not finished'); 
+        require(pairInfo.poolState >= PoolRunningPhase.BidSettled, 'FESN: BID NOT SETTLED'); 
 
-        pairInfo.poolState = PoolRunningPhase.PoolForSale;
-        pairInfo.currentPrice = pairPrice;
+        if(pairPrice != 0){
+            pairInfo.poolState = PoolRunningPhase.PoolForSale;
+            pairInfo.currentPrice = pairPrice;
+        } else{
+            pairInfo.poolState = PoolRunningPhase.PoolHolding;
+            pairInfo.currentPrice = uint256(-1);
+        }
         
         return pairPrice;
     }    
@@ -165,10 +194,10 @@ contract FeswaBid is ERC721, Ownable {
      */
     function FeswaPairBuyIn(uint256 tokenID, uint256 newPrice, address to) external payable returns (uint256 getPrice) {
         FeswaPair storage pairInfo = listPools[tokenID]; 
-        require( pairInfo.poolState == PoolRunningPhase.PoolForSale, 'FESN: Token Pair Not For Sale');
+        require( pairInfo.poolState == PoolRunningPhase.PoolForSale, 'FESN: NOT FOR SALE');
 
         uint256  currentPrice = pairInfo.currentPrice;
-        require(msg.value >= currentPrice, 'FESN: Pay Less');  
+        require(msg.value >= currentPrice, 'FESN: PAY LESS');  
 
         // Change the token owner
          address preOwner = ownerOf(tokenID);
@@ -210,7 +239,7 @@ contract FeswaBid is ERC721, Ownable {
      * @dev Withdraw
      */
     function withdraw(address to, uint256 value) onlyOwner public {
-        require(address(this).balance >= value, 'FESN: Insufficient Balance');
+        require(address(this).balance >= value, 'FESN: INSUFFICIENT BALANCE');
         TransferHelper.safeTransferETH(to, value);
     }
 }
