@@ -10,11 +10,11 @@ import "./utils/TransferHelper.sol";
 
 
 /**
- * @title FeswaBid contract
+ * @title FeswaNFT contract
  * @dev Extends ERC721 Non-Fungible Token Standard basic implementation
  */
 
-contract FeswaBid is ERC721, Ownable { 
+contract FeswaNFT is ERC721, Ownable { 
 
     using SafeMath for uint256;
     using Address for address;

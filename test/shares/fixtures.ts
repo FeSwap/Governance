@@ -5,7 +5,7 @@ import { solidity, deployContract } from 'ethereum-waffle'
 import FeswapByteCode from '../../build/Fesw.json'
 import Timelock from '../../build/Timelock.json'
 import GovernorAlpha from '../../build/GovernorAlpha.json'
-import FeswaBidCode from '../../build/FeswaBid.json'
+import FeswaNFTCode from '../../build/FeswaNFT.json'
 import TestERC20 from '../../build/TestERC20.json'    
 
 import { expandTo18Decimals } from './utils'
@@ -44,33 +44,33 @@ export async function governanceFixture(
 const initPoolPrice = expandTo18Decimals(1).div(5)
 const BidStartTime: number = 1615338000   // 2021/02/22 03/10 9:00
 
-interface FeswaBidFixture {
+interface FeswaNFTFixture {
   TokenA:   Contract
   TokenB:   Contract
   Feswa:    Contract
-  FeswaBid: Contract
+  FeswaNFT: Contract
 }
 
-export async function feswaBidFixture(
+export async function FeswaNFTFixture(
   [wallet, other0]: Wallet[],
   provider: providers.Web3Provider
-): Promise<FeswaBidFixture> {
+): Promise<FeswaNFTFixture> {
   // deploy FeSwap, sending the total supply to the deployer
   const { timestamp: now } = await provider.getBlock('latest')
   const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60])
 
   // deploy FeSwap NFT contract
-  const FeswaBid = await deployContract(wallet, FeswaBidCode, [Feswa.address, initPoolPrice, BidStartTime])
+  const FeswaNFT = await deployContract(wallet, FeswaNFTCode, [Feswa.address, initPoolPrice, BidStartTime])
 
   const Token0 = await deployContract(wallet, TestERC20, ['Test ERC20 A', 'TKA', expandTo18Decimals(1000_000)])
   const Token1 = await deployContract(wallet, TestERC20, ['Test ERC20 B', 'TKB', expandTo18Decimals(1000_000)])
 
-  await Feswa.transfer(FeswaBid.address, expandTo18Decimals(1000_000))
+  await Feswa.transfer(FeswaNFT.address, expandTo18Decimals(1000_000))
 
   // Token A address is always less than Token B addess for testing 
   if(Token0.address.toLowerCase() <= Token1.address.toLowerCase() ) {
-    return { TokenA: Token0, TokenB: Token1, Feswa, FeswaBid }
+    return { TokenA: Token0, TokenB: Token1, Feswa, FeswaNFT }
   } else {
-    return { TokenA: Token1, TokenB: Token0, Feswa, FeswaBid }
+    return { TokenA: Token1, TokenB: Token0, Feswa, FeswaNFT }
   }
 }
