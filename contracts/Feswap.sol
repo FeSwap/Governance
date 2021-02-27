@@ -29,10 +29,11 @@ contract Fesw {
     /// @notice Cap that can be minted at each mint after 5 years
     uint public constant mintCap = 10_000_000;      // 10 million FESW
 
-    // Allowance amounts on behalf of others
+    // @notice Allowance amounts on behalf of others
+    // Documentation tag @notice not valid for non-public state variables
     mapping (address => mapping (address => uint96)) internal allowances;
 
-    // Official record of token balances for each account
+    // @notice Official record of token balances for each account
     mapping (address => uint96) internal balances;
 
     /// @notice A record of each accounts delegate
@@ -76,8 +77,6 @@ contract Fesw {
 
     /// @notice The standard EIP-20 approval event
     event Approval(address indexed owner, address indexed spender, uint256 amount);
-
-//    event TestEvent(uint256 Testinfo, address indexed TestAddress);
 
     /**
      * @notice Construct a new FESW token
