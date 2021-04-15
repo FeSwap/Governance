@@ -57,7 +57,7 @@ contract FeswaNFT is ERC721, Ownable {
     // Minimum price increase for tender: 0.1ETH
     uint256 public constant MINIMUM_PRICE_INCREACE = 1e17;    
 
-    // contract of Feswap Token
+    // contract of Feswap DAO Token
     address public FeswapToken;       
 
     // Price Low Limit for pool creation:  0.2ETH
