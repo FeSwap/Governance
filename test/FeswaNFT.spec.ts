@@ -18,7 +18,6 @@ enum PoolRunningPhase {
   BidPhase, 
   BidDelaying,
   BidSettled,
-  PoolActivated, 
   PoolHolding, 
   PoolForSale
 }
@@ -49,13 +48,17 @@ describe('FeswaNFT', () => {
 
   let TokenA: Contract
   let TokenB: Contract
+  let Feswa: Contract
   let FeswaNFT: Contract
 
   beforeEach('load fixture', async () => {
     const fixture = await loadFixture(FeswaNFTFixture)
     TokenA = fixture.TokenA
-    TokenB = fixture.TokenB    
+    TokenB = fixture.TokenB   
+    Feswa = fixture.Feswa
     FeswaNFT = fixture.FeswaNFT
+
+
   })
 
   /* 
@@ -120,7 +123,7 @@ describe('FeswaNFT', () => {
                                                     [FeswaNFT.address, TokenA.address, TokenB.address] ) )
     await FeswaNFT.BidFeswaPair(TokenA.address, TokenB.address, other0.address,
                                 { ...overrides, value: initPoolPrice } )
-    const NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)   
+    const NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)   
     const lastBlock = await provider.getBlock('latest')
     expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
     expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
@@ -359,7 +362,7 @@ describe('BidFeswaState: checking state transition and airdrop amount', () => {
                                 { ...overrides, value: initPoolPrice.mul(2) } )
                                    
     lastBlock = await provider.getBlock('latest')  
-    let NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)   
+    let NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)   
     expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
     expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
     expect(NewFeswaPair.timeCreated).to.deep.equal(creatTime)
@@ -374,7 +377,7 @@ describe('BidFeswaState: checking state transition and airdrop amount', () => {
                                { ...overrides, value: initPoolPrice.mul(3) } )
     
     lastBlock = await provider.getBlock('latest')                   
-    NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch) 
+    NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch) 
     expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
     expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
     expect(NewFeswaPair.timeCreated).to.deep.equal(creatTime)
@@ -391,7 +394,7 @@ describe('BidFeswaState: checking state transition and airdrop amount', () => {
    
     // delaying again at last second
     lastBlock = await provider.getBlock('latest')
-    NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch) 
+    NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch) 
     expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
     expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
     expect(NewFeswaPair.timeCreated).to.deep.equal(creatTime)
@@ -466,7 +469,7 @@ describe('FeswaPairSettle: checking state and airdrop amount to winner', () => {
     await FeswaNFT.connect(other0).BidFeswaPair(TokenA.address, TokenB.address, other0.address,
                                 { ...overrides, value: initPoolPrice.mul(2) } )  
 
-    let NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)  
+    let NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)  
     expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.BidPhase)
     await expect(FeswaNFT.connect(other0).FeswaPairSettle(tokenIDMatch))
                   .to.be.revertedWith('FESN: BID ON GOING')
@@ -476,7 +479,7 @@ describe('FeswaPairSettle: checking state and airdrop amount to winner', () => {
     await mineBlock(provider, lastBlock.timestamp + OPEN_BID_DURATION + 1 ) 
     await FeswaNFT.connect(other0).FeswaPairSettle(tokenIDMatch)
 
-    NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)  
+    NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)  
     expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.BidSettled)    
     expect(await Feswa.balanceOf(other0.address))
       .to.be.eq(AIRDROP_FOR_NEXT.add(initPoolPrice.mul(2).mul(AIRDROP_RATE_FOR_WINNER)))   
@@ -497,7 +500,7 @@ describe('FeswaPairSettle: checking state and airdrop amount to winner', () => {
     await FeswaNFT.connect(other0).BidFeswaPair(TokenA.address, TokenB.address, other0.address,
                                 { ...overrides, value: initPoolPrice.mul(2) } )   
 
-    let NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)  
+    let NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)  
     expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.BidDelaying)
 
     await expect(FeswaNFT.connect(other0).FeswaPairSettle(tokenIDMatch))
@@ -508,7 +511,7 @@ describe('FeswaPairSettle: checking state and airdrop amount to winner', () => {
     await mineBlock(provider, lastBlock.timestamp + OPEN_BID_DURATION + 1 ) 
     await FeswaNFT.connect(other0).FeswaPairSettle(tokenIDMatch)
 
-    NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)  
+    NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)  
     expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.BidSettled)    
     expect(await Feswa.balanceOf(other0.address))
       .to.be.eq(AIRDROP_FOR_NEXT.add(initPoolPrice.mul(2).mul(AIRDROP_RATE_FOR_WINNER)))                     
@@ -548,6 +551,11 @@ describe('FeswaPairForSale', () => {
                                                         [FeswaNFT.address, TokenA.address, TokenB.address] ) )
   })
 
+  it('FeswaPairForSale: TokenID not existing', async () => {
+    await expect(FeswaNFT.FeswaPairForSale('0xFFFFFFFFFFFFFF', PoolSalePrice))
+          .to.be.revertedWith('ERC721: owner query for nonexistent token')
+  })
+
   it('FeswaPairForSale: Owner Checking', async () => {
     await expect(FeswaNFT.connect(other0).FeswaPairForSale(tokenIDMatch, PoolSalePrice))
           .to.be.revertedWith('FESN: NOT TOKEN OWNER')
@@ -563,7 +571,7 @@ describe('FeswaPairForSale', () => {
     await FeswaNFT.connect(other0).BidFeswaPair(TokenA.address, TokenB.address, other0.address,
                                { ...overrides, value: initPoolPrice.mul(2) } )  
 
-    let NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)  
+    let NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)  
     expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.BidDelaying)
 
     await expect(FeswaNFT.connect(other0).FeswaPairForSale(tokenIDMatch, PoolSalePrice))
@@ -574,22 +582,22 @@ describe('FeswaPairForSale', () => {
     await mineBlock(provider, lastBlock.timestamp + CLOSE_BID_DELAY + 1 ) 
     await FeswaNFT.connect(other0).FeswaPairSettle(tokenIDMatch)
 
-    NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)  
+    NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)  
     expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.BidSettled)    
 
     // For Sale 
     await FeswaNFT.connect(other0).FeswaPairForSale(tokenIDMatch, PoolSalePrice)
-    NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)  
+    NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)  
     expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.PoolForSale)  
 
     // Close Sale
     await FeswaNFT.connect(other0).FeswaPairForSale(tokenIDMatch, 0)
-    NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)  
+    NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)  
     expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.PoolHolding) 
 
     // For Sale again from PoolHolding phase
     await FeswaNFT.connect(other0).FeswaPairForSale(tokenIDMatch, PoolSalePrice)
-    NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)  
+    NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)  
     expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.PoolForSale) 
   })
 
@@ -601,7 +609,7 @@ describe('FeswaPairForSale', () => {
       await FeswaNFT.FeswaPairForSale(tokenIDMatch, PoolSalePrice)
 
       // checking
-      let NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)   
+      let NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)   
       expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
       expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
       expect(NewFeswaPair.timeCreated).to.deep.equal(lastBlock.timestamp)
@@ -612,7 +620,7 @@ describe('FeswaPairForSale', () => {
       await FeswaNFT.FeswaPairForSale(tokenIDMatch, PoolSalePrice.mul(2))
 
       // checking
-      NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)   
+      NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)   
       expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
       expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
       expect(NewFeswaPair.timeCreated).to.deep.equal(lastBlock.timestamp)
@@ -656,7 +664,13 @@ describe('FeswaPairForSale', () => {
       await mineBlock(provider, createBlock.timestamp + OPEN_BID_DURATION + 1)  
       await FeswaNFT.FeswaPairSettle(tokenIDMatch)
     })
-  
+
+    it('FeswaPairBuyIn: Wrong TokenID', async () => {
+      await expect(FeswaNFT.FeswaPairBuyIn( '0xFFFFFFFF', PoolSalePrice, other0.address,
+                                                            { ...overrides, value: PoolSalePrice } ) )
+            .to.be.revertedWith('FESN: TOKEN NOT CREATED')
+    })
+
     it('FeswaPairBuyIn: Owner Checking', async () => {
       await expect(FeswaNFT.connect(other0).FeswaPairBuyIn( tokenIDMatch, PoolSalePrice, other0.address,
                                                             { ...overrides, value: PoolSalePrice } ) )
@@ -683,7 +697,7 @@ describe('FeswaPairForSale', () => {
             .withArgs(wallet.address, other0.address, tokenIDMatch)  
 
       // checking
-      const NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)   
+      const NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)   
       expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
       expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
       expect(NewFeswaPair.timeCreated).to.deep.equal(createBlock.timestamp)
@@ -706,7 +720,7 @@ describe('FeswaPairForSale', () => {
             .withArgs(wallet.address, other0.address, tokenIDMatch)  
 
       // checking
-      const NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)   
+      const NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)   
       expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
       expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
       expect(NewFeswaPair.timeCreated).to.deep.equal(createBlock.timestamp)
@@ -725,7 +739,7 @@ describe('FeswaPairForSale', () => {
       const receipt = await tx.wait()
 
       // checking
-      const NewFeswaPair= await FeswaNFT.listPools(tokenIDMatch)   
+      const NewFeswaPair= await FeswaNFT.ListPools(tokenIDMatch)   
       expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
       expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
       expect(NewFeswaPair.timeCreated).to.deep.equal(createBlock.timestamp)
@@ -744,7 +758,7 @@ describe('FeswaPairForSale', () => {
     })
   })
 
-  describe('getPoolByTokens', () => {
+  describe('getPoolInfoByTokens & getPoolTokens', () => {
     const provider = new MockProvider({
       ganacheOptions: {
         hardfork: 'istanbul',
@@ -757,6 +771,7 @@ describe('FeswaPairForSale', () => {
   
     let TokenA: Contract
     let TokenB: Contract
+    let Feswa: Contract
     let FeswaNFT: Contract
     let tokenIDMatch: string
   
@@ -764,6 +779,7 @@ describe('FeswaPairForSale', () => {
       const fixture = await loadFixture(FeswaNFTFixture)
       TokenA = fixture.TokenA
       TokenB = fixture.TokenB    
+      Feswa = fixture.Feswa
       FeswaNFT = fixture.FeswaNFT
   
       // Normal NFT creation
@@ -774,17 +790,31 @@ describe('FeswaPairForSale', () => {
                                                           [FeswaNFT.address, TokenA.address, TokenB.address] ) )
     })
   
-    it('getPoolByTokens: Address are ordered', async () => {
+    it('getPoolInfoByTokens: Pair not created', async () => {
+      await expect(FeswaNFT.getPoolInfoByTokens(TokenA.address, Feswa.address)) 
+              .to.be.revertedWith('FESN: TOKEN NOT CREATED') 
+    })
+
+    it('getPoolInfoByTokens: Check TokenInfo', async () => {
       const lastBlock = await provider.getBlock('latest')
-      const poolInfo = await FeswaNFT.getPoolByTokens(TokenA.address, TokenB.address)   
-      expect(poolInfo.tokenA).to.deep.equal(TokenA.address)
-      expect(poolInfo.tokenB).to.deep.equal(TokenB.address)
-      expect(poolInfo.timeCreated).to.deep.equal(lastBlock.timestamp)
-      expect(poolInfo.poolState).to.deep.equal(PoolRunningPhase.BidPhase)
-      expect(poolInfo.currentPrice).to.deep.equal(initPoolPrice) 
+      const poolInfo = await FeswaNFT.getPoolInfoByTokens(TokenA.address, TokenB.address)   
+      expect(poolInfo.tokenID).to.deep.equal(tokenIDMatch)
+      expect(poolInfo.pairInfo.tokenA).to.deep.equal(TokenA.address)
+      expect(poolInfo.pairInfo.tokenB).to.deep.equal(TokenB.address)
+      expect(poolInfo.pairInfo.timeCreated).to.deep.equal(lastBlock.timestamp)
+      expect(poolInfo.pairInfo.poolState).to.deep.equal(PoolRunningPhase.BidPhase)
+      expect(poolInfo.pairInfo.currentPrice).to.deep.equal(initPoolPrice) 
       
-      const poolInfoBA = await FeswaNFT.getPoolByTokens(TokenB.address, TokenA.address)  
+      const poolInfoBA = await FeswaNFT.getPoolInfoByTokens(TokenB.address, TokenA.address)  
       expect(poolInfo).to.deep.equal(poolInfoBA)
+    })
+
+    it('getPoolTokens: Token ID not existed', async () => {
+      await expect(FeswaNFT.getPoolTokens('0xFFFFFFFFFFF')).to.be.revertedWith('FESN: NOT TOKEN OWNER')  
+    })
+
+    it('getPoolTokens: Normal', async () => {
+      expect(await FeswaNFT.getPoolTokens(tokenIDMatch)).to.deep.eq([TokenA.address, TokenB.address])  
     })
   })
 

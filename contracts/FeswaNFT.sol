@@ -8,6 +8,22 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "./utils/TransferHelper.sol";
 
+    enum PoolRunningPhase {
+        BidPhase, 
+        BidDelaying,
+        BidSettled,
+        PoolHolding, 
+        PoolForSale
+    }
+
+    struct FeswaPair {
+        address tokenA;
+        address tokenB;
+        uint256 currentPrice;
+        uint64  timeCreated;
+        uint64  lastBidTime; 
+        PoolRunningPhase  poolState;
+    }
 
 /**
  * @title FeswaNFT contract
@@ -18,15 +34,6 @@ contract FeswaNFT is ERC721, Ownable {
 
     using SafeMath for uint256;
     using Address for address;
-
-    struct FeswaPair {
-        address tokenA;
-        address tokenB;
-        uint128  timeCreated;
-        uint128  lastBidTime; 
-        PoolRunningPhase  poolState;
-        uint256 currentPrice;
-    }
 
     // Public variables
     string public constant NAME = 'Feswap Pool NFT';
@@ -60,20 +67,11 @@ contract FeswaNFT is ERC721, Ownable {
     uint256 public SaleStartTime;       // 1614556800  //2021/03/01 00:00
 
     // Mapping from token ID to token pair infomation
-    mapping (uint256 => FeswaPair) public listPools;
+    mapping (uint256 => FeswaPair) public ListPools;
  
     // Events
     event PairCreadted(address indexed tokenA, address indexed tokenB, uint256 tokenID);
-
-    enum PoolRunningPhase {
-        BidPhase, 
-        BidDelaying,
-        BidSettled,
-        PoolActivated, 
-        PoolHolding, 
-        PoolForSale
-    }
-    
+  
     /**
      * @dev Initializes the contract by setting a `name` and a `symbol` to the token collection.
      */
@@ -98,7 +96,7 @@ contract FeswaNFT is ERC721, Ownable {
         tokenID  = uint256(keccak256(abi.encodePacked(address(this), token0, token1)));
 
         if(_exists(tokenID )){
-            FeswaPair storage pairInfo = listPools[tokenID]; 
+            FeswaPair storage pairInfo = ListPools[tokenID]; 
             require(msg.value >= pairInfo.currentPrice.mul(11).div(10), 'FESN: PAY LESS');  // minimum 10% increase
             require(msg.value >= pairInfo.currentPrice.add(MINIMUM_PRICE_INCREACE), 'FESN: PAY LESS');  // minimum 10% increase
 
@@ -113,7 +111,7 @@ contract FeswaNFT is ERC721, Ownable {
             }
 
             // update last tender timestamp
-            pairInfo.lastBidTime = uint128(block.timestamp);
+            pairInfo.lastBidTime = uint64(block.timestamp);
 
             // calculte repay amount
             uint256 repayAmount = msg.value.add(pairInfo.currentPrice.mul(9)).div(10);      // B + (A-B)/10
@@ -138,10 +136,10 @@ contract FeswaNFT is ERC721, Ownable {
             pairInfo.tokenA = token0;
             pairInfo.tokenB = token1;
             pairInfo.currentPrice = msg.value;              //could be more than PriceLowLimit
-            pairInfo.timeCreated = uint128(block.timestamp);
+            pairInfo.timeCreated = uint64(block.timestamp);
             pairInfo.poolState = PoolRunningPhase.BidPhase;
 
-            listPools[tokenID] = pairInfo;
+            ListPools[tokenID] = pairInfo;
             emit PairCreadted(tokenA, tokenB, tokenID);
 
             // Airdrop to the first tender
@@ -155,7 +153,7 @@ contract FeswaNFT is ERC721, Ownable {
     function FeswaPairSettle(uint256 tokenID) external {
         require(msg.sender == ownerOf(tokenID), 'FESN: NOT TOKEN OWNER');
         
-        FeswaPair storage pairInfo = listPools[tokenID]; 
+        FeswaPair storage pairInfo = ListPools[tokenID]; 
         if(pairInfo.poolState == PoolRunningPhase.BidPhase){
             require(block.timestamp > pairInfo.timeCreated + OPEN_BID_DURATION, 'FESN: BID ON GOING');  
         } else {
@@ -175,7 +173,7 @@ contract FeswaNFT is ERC721, Ownable {
     function FeswaPairForSale(uint256 tokenID, uint256 pairPrice) external returns (uint256 newPrice) {
         require(msg.sender == ownerOf(tokenID), 'FESN: NOT TOKEN OWNER');
         
-        FeswaPair storage pairInfo = listPools[tokenID]; 
+        FeswaPair storage pairInfo = ListPools[tokenID]; 
         require(pairInfo.poolState >= PoolRunningPhase.BidSettled, 'FESN: BID NOT SETTLED'); 
 
         if(pairPrice != 0){
@@ -193,7 +191,8 @@ contract FeswaNFT is ERC721, Ownable {
      * @dev Sell the Pair with the specified Price. 
      */
     function FeswaPairBuyIn(uint256 tokenID, uint256 newPrice, address to) external payable returns (uint256 getPrice) {
-        FeswaPair storage pairInfo = listPools[tokenID]; 
+        require(_exists(tokenID), 'FESN: TOKEN NOT CREATED');
+        FeswaPair storage pairInfo = ListPools[tokenID]; 
         require( pairInfo.poolState == PoolRunningPhase.PoolForSale, 'FESN: NOT FOR SALE');
 
         uint256  currentPrice = pairInfo.currentPrice;
@@ -222,10 +221,20 @@ contract FeswaNFT is ERC721, Ownable {
     /**
      * @dev Return the token-pair information 
      */
-    function getPoolByTokens(address tokenA, address tokenB) external view returns (FeswaPair memory pairInfo) {
+    function getPoolInfoByTokens(address tokenA, address tokenB) external view returns (uint256 tokenID, FeswaPair memory pairInfo) {
         (address token0, address token1) = (tokenA < tokenB) ? (tokenA, tokenB) : (tokenB, tokenA);
-        uint256 tokenID  = uint256(keccak256(abi.encodePacked(address(this), token0, token1)));
-        return listPools[tokenID];
+        tokenID = uint256(keccak256(abi.encodePacked(address(this), token0, token1)));
+        require(_exists(tokenID), 'FESN: TOKEN NOT CREATED');
+        pairInfo = ListPools[tokenID];
+    }
+
+    /**
+     * @dev Return the token pair addresses by TokenID 
+     */
+    function getPoolTokens(uint256 tokenID) external view returns (address tokenA, address tokenB) {
+        FeswaPair storage pairInfo = ListPools[tokenID];
+        require(pairInfo.tokenA != address(0), 'FESN: NOT TOKEN OWNER');
+        return  (pairInfo.tokenA, pairInfo.tokenB);
     }
 
     /**

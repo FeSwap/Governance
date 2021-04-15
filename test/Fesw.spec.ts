@@ -51,7 +51,7 @@ describe('Feswap', () => {
 
   it('name, symbol, decimals, totalSupply, balanceOf, nonces, DOMAIN_SEPARATOR, PERMIT_TYPEHASH', async () => {
     const name = await Feswa.name()
-    expect(name).to.eq('FeSwap Token')
+    expect(name).to.eq('FeSwap DAO')
     expect(await Feswa.symbol()).to.eq('FESW')
     expect(await Feswa.decimals()).to.eq(18)
     expect(await Feswa.totalSupply()).to.eq(TOTAL_SUPPLY)
