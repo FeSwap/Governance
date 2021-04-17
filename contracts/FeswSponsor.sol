@@ -57,6 +57,9 @@ contract FeswSponsor {
 
     // Events for received sponsor
     event EvtSponsorReceived(address indexed from, address indexed to, uint256 ethValue);
+
+    // Events for finalized sponsor
+    event EvtSponsorFinalized(address indexed to, uint256 ethValue);
   
     /**
      * @dev Initializes the contract with fund and burner address
@@ -70,7 +73,7 @@ contract FeswSponsor {
     }
 
     /**
-     * @notice Receive the sponsorship
+     * @dev Receive the sponsorship
      * @param feswapReceiver The address receiving the giveaway FESW token
      */
     function Sponsor(address feswapReceiver) external payable returns (uint256 sponsorAccepted) {
@@ -118,7 +121,7 @@ contract FeswSponsor {
         require( (block.timestamp >= (SponsorStartTime + SPONSOR_DURATION)) 
                     || (TotalETHReceived > TARGET_RAISING_ETH), 'FESW: SPONSOR ONGOING');
 
-        // If sponsor raising succeeded 
+        // If sponsor raising succeeded, burning left FESW
         address to = FeswapBurner;
 
         // If sponsor raising failed 
@@ -131,5 +134,7 @@ contract FeswSponsor {
         // Claim the raised sponsor
         TransferHelper.safeTransferETH(FeswapFund, address(this).balance );
         SponsorFinalized = 0xA5;
+
+        emit EvtSponsorFinalized(FeswapFund, TotalETHReceived);
     }
 }

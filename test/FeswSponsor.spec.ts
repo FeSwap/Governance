@@ -17,7 +17,8 @@ const ETHOne = expandTo18Decimals(1)
 const ETH100 = expandTo18Decimals(100)
 
 const overrides = {
-  gasLimit: 9999999
+  gasLimit: 9999999,
+  gasPrice: 1000
 }
 
 function getGiveRate(nETH: number): BigNumber {
@@ -30,6 +31,8 @@ describe('FeswapSponsor', () => {
       hardfork: 'istanbul',
       mnemonic: 'horn horn horn horn horn horn horn horn horn horn horn horn',
       gasLimit: 9999999,
+      gasPrice: '1000',
+      default_balance_ether: 1000,
     },
   })
   const [wallet, other0, other1] = provider.getWallets()
@@ -38,8 +41,6 @@ describe('FeswapSponsor', () => {
   let Feswa: Contract
   let timelock: Contract
   let governorAlpha: Contract
-  let proposalId: BigNumber
-  let lastBlock: Block
   let sponsorContract: Contract
 
 
@@ -71,7 +72,6 @@ describe('FeswapSponsor', () => {
     let giveRate: BigNumber
 
     // 1. Check sponsor start time 
-    // 1. Check sponsor start time 
     await expect(sponsorContract.Sponsor(other0.address, { ...overrides, value: ETHOne } ))
             .to.be.revertedWith('FESW: SPONSOR NOT STARTED')
 
@@ -89,7 +89,6 @@ describe('FeswapSponsor', () => {
     TotalSponsor = TotalSponsor.add(ETHOne)        
     expect(await Feswa.balanceOf(other0.address)).to.eq(feswOther0)
 
-    
     // keep same time to simulate the same block
     await mineBlock(provider, startTime - 1)
     await expect(sponsorContract.Sponsor(other1.address, { ...overrides, value: ETH100 } ))
@@ -135,7 +134,7 @@ describe('FeswapSponsor', () => {
     feswOther0 = feswOther0.add(ETHOne.mul(790).mul(giveRate))    
     expect(await Feswa.balanceOf(other0.address)).to.eq(feswOther0)   
     expect(await sponsorContract.TotalETHReceived()).to.eq(TotalSponsor)    
-    
+
     // 7. Continue to sponsor to 1012 ETH by sponsoring 20ETH, 11ETH are returned
     giveRate = getGiveRate(TotalSponsor.div(ETHOne).toNumber())
     await mineBlock(provider, startTime + 30)
@@ -151,7 +150,7 @@ describe('FeswapSponsor', () => {
     // 9. Check ETH balance  
     expect(await provider.getBalance(sponsorContract.address)).to.eq(TotalSponsor)   
     
-    // 10. Continue to sponsor: reverted 
+    // 10. Continue to sponsor: reverted, and sponsor cap reached 
     await mineBlock(provider, startTime + 40)
     await expect(sponsorContract.connect(other0).Sponsor(other0.address, { ...overrides, value: ETHOne} ))
             .to.be.revertedWith('FESW: SPONSOR COMPLETED')
@@ -162,118 +161,100 @@ describe('FeswapSponsor', () => {
     await expect(sponsorContract.Sponsor(other0.address, { ...overrides, value: ETHOne } ))
             .to.be.revertedWith('FESW: SPONSOR ENDED')
 
-  })
-
-
-
-/*  
-  it('permit', async () => {
-    const domainSeparator = utils.keccak256(
-      utils.defaultAbiCoder.encode(
-        ['bytes32', 'bytes32', 'uint256', 'address'],
-        [DOMAIN_TYPEHASH, utils.keccak256(utils.toUtf8Bytes('FeSwap DAO')), 1, Feswa.address]
-      )
-    )
-
-    const owner = wallet.address
-    const spender = other0.address
-    const value = 123456
-    const nonce = await Feswa.nonces(wallet.address)
-    const deadline = constants.MaxUint256
-    const digest = utils.keccak256(
-      utils.solidityPack(
-        ['bytes1', 'bytes1', 'bytes32', 'bytes32'],
-        [
-          '0x19',
-          '0x01',
-          domainSeparator,
-          utils.keccak256(
-            utils.defaultAbiCoder.encode(
-              ['bytes32', 'address', 'address', 'uint256', 'uint256', 'uint256'],
-              [PERMIT_TYPEHASH, owner, spender, value, nonce, deadline]
-            )
-          ),
-        ]
-      )
-    )
-
-    const { v, r, s } = ecsign(Buffer.from(digest.slice(2), 'hex'), Buffer.from(wallet.privateKey.slice(2), 'hex'))
-
-    // cannot mint more than 1000_000
-    await expect(Feswa.connect(other0).transferFrom(owner, spender, value))
-            .to.be.revertedWith('FESW::transferFrom: transfer amount exceeds spender allowance')
-
-    await Feswa.permit(owner, spender, value, deadline, v, utils.hexlify(r), utils.hexlify(s), overrides)
-
-    expect(await Feswa.allowance(owner, spender)).to.eq(value)
-    expect(await Feswa.nonces(owner)).to.eq(1)
-
-    await Feswa.connect(other0).transferFrom(owner, spender, value)
-  })
-
-*/  
-
-/*
-  it('nested delegation', async () => {
-    await Feswa.transfer(other0.address, expandTo18Decimals(1))
-    await Feswa.transfer(other1.address, expandTo18Decimals(2))
-
-    let currentVotes0 = await Feswa.getCurrentVotes(other0.address)
-    let currentVotes1 = await Feswa.getCurrentVotes(other1.address)
-    expect(currentVotes0).to.be.eq(0)
-    expect(currentVotes1).to.be.eq(0)
-
-    await Feswa.connect(other0).delegate(other1.address)
-    currentVotes1 = await Feswa.getCurrentVotes(other1.address)
-    expect(currentVotes1).to.be.eq(expandTo18Decimals(1))
-
-    await Feswa.connect(other1).delegate(other1.address)
-    currentVotes1 = await Feswa.getCurrentVotes(other1.address)
-    expect(currentVotes1).to.be.eq(expandTo18Decimals(1).add(expandTo18Decimals(2)))
-
-    await Feswa.connect(other1).delegate(other0.address)
-    currentVotes1 = await Feswa.getCurrentVotes(other1.address)
-    expect(currentVotes1).to.be.eq(expandTo18Decimals(1))
-
-    currentVotes0 = await Feswa.getCurrentVotes(other0.address)
-    expect(currentVotes0).to.be.eq(expandTo18Decimals(2))
+    // 12. Finalize the sponsor 
+    await expect(sponsorContract.finalizeSponsor())
+            .to.emit(sponsorContract,'EvtSponsorFinalized')
+            .withArgs(wallet.address,  ETHOne.mul(1001))
 
   })
-*/
 
-/*
-  it('mints', async () => {
-    const { timestamp: now } = await provider.getBlock('latest')
-    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, wallet.address, now + 60 * 60])
-    const supply = await Feswa.totalSupply()
+  it('Finalize sponsor testing: Sponor raising failed', async () => {
+    // Skip to start time          
+    let lastBlock  = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + 60 * 60)       
+    const {timestamp: startTime}  = await provider.getBlock('latest')
+        
+    // Start normal sponsor: 500ETH
+    await expect(sponsorContract.connect(other0).Sponsor(other0.address, { ...overrides, value: ETHOne.mul(500) } ))
+            .to.emit(sponsorContract,'EvtSponsorReceived')
+            .withArgs(other0.address, other0.address, ETHOne.mul(500))
 
-    await expect(Feswa.mint(wallet.address, 1))
-            .to.be.revertedWith('FESW::mint: minting not allowed yet')
+    // Normal sponsor: 200ETH
+    await mineBlock(provider, startTime + 10)
+    let tx = await sponsorContract.connect(other1).Sponsor(other0.address, { ...overrides, value: ETHOne.mul(200) } )
+    let receipt = await tx.wait()   
+    expect(receipt.gasUsed).to.eq(66839) 
 
-    let timestamp = BigNumber.from(now + 60*60)
-    await mineBlock(provider, timestamp.toNumber())
+    // 1. Try to finalize the sponsor while it is still on going 
+    await expect(sponsorContract.finalizeSponsor())
+            .to.be.revertedWith('FESW: SPONSOR ONGOING')            
+    
+    // skip to the end time 
+    await mineBlock(provider, startTime + 30 * 24 * 3600 + 1)
+      
+    // 2. Only feswFund address could finalize the sponsor 
+    await expect(sponsorContract.connect(other0).finalizeSponsor())
+            .to.be.revertedWith('FESW: NOT ALLOWED')    
+    
+    // 3. Finalize the sponsor 
+    let feswFundBalance = await provider.getBalance(wallet.address)
+    let totalFeswLeft = await Feswa.balanceOf(sponsorContract.address)
+    let FeswNumWallet = await Feswa.balanceOf(wallet.address)
+    tx = await sponsorContract.finalizeSponsor()
+    receipt = await tx.wait()
 
-    await expect(Feswa.connect(other1).mint(other1.address, 1))
-            .to.be.revertedWith('FESW::mint: only the minter can mint')
+    // 4. Check feswFund balance
+    expect(await provider.getBalance(wallet.address)).
+      to.eq(feswFundBalance.add(expandTo18Decimals(700)).sub(receipt.gasUsed.mul(overrides.gasPrice)))
 
-    await expect(Feswa.mint('0x0000000000000000000000000000000000000000', 1))
-            .to.be.revertedWith('FESW::mint: cannot transfer to the zero address')
+    // 5. Check feswFund balance, returned to feswFund address
+    expect(await Feswa.balanceOf(sponsorContract.address)).to.eq(0)
+    expect(await Feswa.balanceOf(wallet.address)).to.eq(FeswNumWallet.add(totalFeswLeft))
 
-    // can mint up to 10_000_000
-    const mintCap = BigNumber.from(await Feswa.mintCap())
-    await Feswa.mint(wallet.address, mintCap)
-    expect(await Feswa.balanceOf(wallet.address)).to.be.eq(supply.add(mintCap))
-
-    lastBlock = await provider.getBlock('latest')
-    expect(await Feswa.mintingAllowedAfter()).to.be.eq(lastBlock.timestamp + 365*24*3600)
-
-    timestamp = await Feswa.mintingAllowedAfter()
-    await mineBlock(provider, timestamp.toNumber())
-
-    // cannot mint more than 10_000_000
-    await expect(Feswa.mint(wallet.address, mintCap.add(1)))
-            .to.be.revertedWith('FESW::mint: exceeded mint cap')
+    // 6. Cannot finalize the sponsor twice 
+    await expect(sponsorContract.finalizeSponsor())
+            .to.be.revertedWith('FESW: SPONSOR FINALIZED')       
   })
-*/
 
+  it('Finalize sponsor testing: Sponor raising succeed', async () => {
+    // Skip to start time          
+    let lastBlock  = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + 60 * 60)       
+    const {timestamp: startTime}  = await provider.getBlock('latest')
+        
+    // Start normal sponsor: 500ETH
+    await expect(sponsorContract.Sponsor(other0.address, { ...overrides, value: ETHOne.mul(500) } ))
+            .to.emit(sponsorContract,'EvtSponsorReceived')
+            .withArgs(wallet.address, other0.address, ETHOne.mul(500))
+
+    // Normal sponsor: 600ETH, sponsor target achievded, only 501 ETH accepted
+    await mineBlock(provider, startTime + 10)
+    await expect(sponsorContract.Sponsor(other0.address, { ...overrides, value: ETHOne.mul(600) } ))
+            .to.emit(sponsorContract,'EvtSponsorReceived')
+            .withArgs(wallet.address, other0.address, ETHOne.mul(501))
+
+    // 1. Only feswFund address could finalize the sponsor 
+    await expect(sponsorContract.connect(other0).finalizeSponsor())
+            .to.be.revertedWith('FESW: NOT ALLOWED')    
+    
+    // 2. Finalize the sponsor ahead of the end time 
+    let feswFundBalance0 = await provider.getBalance(wallet.address)
+    let totalETHReceived = await sponsorContract.TotalETHReceived()
+    let totalFeswLeft = await Feswa.balanceOf(sponsorContract.address)
+
+    const tx = await sponsorContract.finalizeSponsor()
+    const receipt = await tx.wait()
+
+    // 3. Check feswFund balance
+    expect(await provider.getBalance(wallet.address)).
+      to.eq(feswFundBalance0.add(totalETHReceived).sub(receipt.gasUsed.mul(overrides.gasPrice)))
+
+    // 4. Check feswFund balance
+    expect(await Feswa.balanceOf(sponsorContract.address)).to.eq(0)
+    expect(await Feswa.balanceOf(timelock.address)).to.eq(totalFeswLeft)
+
+    // 5. Cannot finalize the sponsor twice 
+    await expect(sponsorContract.finalizeSponsor())
+            .to.be.revertedWith('FESW: SPONSOR FINALIZED')            
+  })
 })
