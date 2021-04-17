@@ -17,8 +17,8 @@ contract Fesw {
     /// @notice Total number of tokens in circulation
     uint public totalSupply = 1_000_000_000e18;     // 1 billion FESW
 
-    /// @notice Address which may mint new tokens
-    address public minter;
+    /// @notice Address which may mint and burn FESW tokens
+    address public minterBurner;
 
     /// @notice The timestamp after which minting may occur
     uint public mintingAllowedAfter;
@@ -63,8 +63,8 @@ contract Fesw {
     /// @notice A record of states for signing / validating signatures
     mapping (address => uint) public nonces;
 
-    /// @notice An event thats emitted when the minter address is changed
-    event MinterChanged(address minter, address newMinter);
+    /// @notice An event thats emitted when the minterBurner address is changed
+    event MinterBurnerChanged(address minterBurner, address newMinterBurner);
 
     /// @notice An event thats emitted when an account changes its delegate
     event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
@@ -81,27 +81,27 @@ contract Fesw {
     /**
      * @notice Construct a new FESW token
      * @param account The initial account to grant all the tokens
-     * @param minter_ The account with minting ability
+     * @param minterBurner_ The account with minting/burning ability
      * @param mintingAllowedAfter_ The timestamp after which minting may occur
      */
-    constructor(address account, address minter_, uint mintingAllowedAfter_) {
+    constructor(address account, address minterBurner_, uint mintingAllowedAfter_) {
         require(mintingAllowedAfter_ >= block.timestamp, "FESW::constructor: minting can only begin after deployment");
 
         balances[account] = uint96(totalSupply);
         emit Transfer(address(0), account, totalSupply);
-        minter = minter_;
-        emit MinterChanged(address(0), minter);
+        minterBurner = minterBurner_;
+        emit MinterBurnerChanged(address(0), minterBurner);
         mintingAllowedAfter = mintingAllowedAfter_;
     }
 
     /**
-     * @notice Change the minter address
-     * @param minter_ The address of the new minter
+     * @notice Change the minter/burner address
+     * @param minterBurner_ The address of the new minter/burner
      */
-    function setMinter(address minter_) external {
-        require(msg.sender == minter, "FESW::setMinter: only the minter can change the minter address");
-        emit MinterChanged(minter, minter_);
-        minter = minter_;
+    function setMinterBurner(address minterBurner_) external {
+        require(msg.sender == minterBurner, "FESW::setMinter: only the minter can change the minter address");
+        emit MinterBurnerChanged(minterBurner, minterBurner_);
+        minterBurner = minterBurner_;
     }
 
     /**
@@ -110,7 +110,7 @@ contract Fesw {
      * @param rawAmount The number of tokens to be minted
      */
     function mint(address dst, uint rawAmount) external {
-        require(msg.sender == minter, "FESW::mint: only the minter can mint");
+        require(msg.sender == minterBurner, "FESW::mint: only the minter can mint");
         require(block.timestamp >= mintingAllowedAfter, "FESW::mint: minting not allowed yet");
         require(dst != address(0), "FESW::mint: cannot transfer to the zero address");
 

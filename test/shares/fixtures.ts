@@ -6,7 +6,8 @@ import FeswapByteCode from '../../build/Fesw.json'
 import Timelock from '../../build/Timelock.json'
 import GovernorAlpha from '../../build/GovernorAlpha.json'
 import FeswaNFTCode from '../../build/FeswaNFT.json'
-import TestERC20 from '../../build/TestERC20.json'    
+import TestERC20 from '../../build/TestERC20.json'  
+import FeswSponsor from '../../build/FeswSponsor.json'  
 
 import { expandTo18Decimals } from './utils'
 
@@ -39,6 +40,42 @@ export async function governanceFixture(
   expect(governorAlpha.address).to.be.eq(governorAlphaAddress)
 
   return { Feswa, timelock, governorAlpha }
+}
+
+
+interface SponsorFixture {
+  Feswa: Contract
+  timelock: Contract
+  governorAlpha: Contract
+  sponsor: Contract
+}
+
+export async function sponsorFixture(
+  [wallet]: Wallet[],
+  provider: providers.Web3Provider
+): Promise<SponsorFixture> {
+  // deploy FeSwap, sending the total supply to the deployer
+  const { timestamp: now } = await provider.getBlock('latest')
+  const timelockAddress = Contract.getContractAddress({ from: wallet.address, nonce: 1 })
+  const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, timelockAddress, now + 60 * 60])
+
+  // deploy timelock, controlled by what will be the governor
+  const governorAlphaAddress = Contract.getContractAddress({ from: wallet.address, nonce: 2 })
+  const timelock = await deployContract(wallet, Timelock, [governorAlphaAddress, DELAY])
+  expect(timelock.address).to.be.eq(timelockAddress)
+
+  // deploy governorAlpha
+  const governorAlpha = await deployContract(wallet, GovernorAlpha, [timelock.address, Feswa.address])
+  expect(governorAlpha.address).to.be.eq(governorAlphaAddress)
+
+  // deploy governorAlpha
+  const lastBlock = await provider.getBlock('latest')
+  const sponsor = await deployContract(wallet, FeswSponsor, [Feswa.address, wallet.address, timelock.address, lastBlock.timestamp + 60 *60])
+
+  // total giveaway FESW
+  await Feswa.transfer(sponsor.address, expandTo18Decimals(100_000_000))
+
+  return { Feswa, timelock, governorAlpha, sponsor }
 }
 
 const initPoolPrice = expandTo18Decimals(1).div(5)
