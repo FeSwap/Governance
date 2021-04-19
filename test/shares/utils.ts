@@ -68,3 +68,7 @@ export function encodeParameters(types: Array<string>, values: Array<any>): stri
 export async function mineBlock(provider: providers.Web3Provider, timestamp: number): Promise<void> {
   return provider.send('evm_mine', [timestamp])
 }
+
+export async function setBlockTime(provider: providers.Web3Provider, timestamp: number): Promise<void> {
+  return provider.send('evm_setTime', [timestamp])
+}

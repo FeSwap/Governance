@@ -64,7 +64,6 @@ describe('castVote', () => {
   }
 
   it("Voting block number should be between the proposal's start block (exclusive) and end block (inclusive)", async () => {
-//    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockAAAA", lastBlock)
     let timestamp = lastBlock.timestamp
     await mineBlock(provider, timestamp-1)
     await expect(governorAlpha.castVote(proposalId, true)).to.be.revertedWith('GovernorAlpha::_castVote: voting is closed')
@@ -183,7 +182,7 @@ describe('castVote', () => {
       const castVoteBySigTrx = await governorAlpha.castVoteBySig(proposalId, true, v, r, s)
 
       const receipt = await castVoteBySigTrx.wait()
-      expect(receipt.gasUsed).to.lt(85000)    
+      expect(receipt.gasUsed).to.eq(82868)    
 
       let afterFors = await governorAlpha.proposals(proposalId)
       expect(afterFors.forVotes).to.be.equal(beforeFors.forVotes.add(expandTo18Decimals(40_000_001)))

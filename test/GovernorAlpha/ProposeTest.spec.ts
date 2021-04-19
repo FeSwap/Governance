@@ -3,7 +3,7 @@ import { BigNumber, Contract, constants, Wallet } from 'ethers'
 import { solidity, MockProvider, createFixtureLoader } from 'ethereum-waffle'
 
 import { governanceFixture } from '../shares/fixtures'
-import { DELAY, mineBlock, encodeParameters, expandTo18Decimals} from '../shares/utils'
+import { DELAY, mineBlock, encodeParameters, expandTo18Decimals, setBlockTime} from '../shares/utils'
 
 import { Block } from "@ethersproject/abstract-provider";
 
@@ -57,13 +57,13 @@ describe('GovernorAlpha_Propose', () => {
     expect(trivialProposal.proposer).to.be.equal(wallet.address);
   });
 
-  it("Start block is set to the current block number plus vote delay", async () => {
-    expect(trivialProposal.startBlock).to.be.equal(lastBlock.number + 1);
+  it("Start block is set to the current block number, and the block time", async () => {
+    expect(trivialProposal.startBlock).to.be.equal(lastBlock.number);
+    expect(trivialProposal.startBlockTime).to.be.equal(lastBlock.timestamp);
   });
 
-  it("End block is set to the current block number plus the sum of vote delay and vote period", async () => {
-//    expect(trivialProposal.endBlock).to.be.equal(lastBlock.number + 1 + 17280);
-    expect(trivialProposal.endBlock).to.be.equal(lastBlock.number + 1 + 5);       // for test: 5 more blocks
+  it("End block time is set to the current block number plus the vote period", async () => {
+    expect(trivialProposal.endBlockTime).to.be.equal(lastBlock.timestamp + 7*24*3600); 
   });
 
   it("ForVotes and AgainstVotes are initialized to zero", async () => {
@@ -84,41 +84,37 @@ describe('GovernorAlpha_Propose', () => {
     let dynamicFields = await governorAlpha.getActions(proposalId);
 
     expect(dynamicFields.targets).to.deep.equal(targets)
-    expect(dynamicFields[1][0]).to.deep.equal(BigNumber.from(0))  // ??? uint is converted to BigNumber
+    expect(dynamicFields[1][0]).to.deep.equal(BigNumber.from(0))  
     expect(dynamicFields.signatures).to.deep.equal(signatures)
     expect(dynamicFields.calldatas).to.deep.equal(callDatas);
   });
 
   describe("This function must revert if", () => {
     it("the length of the values, signatures or calldatas arrays are not the same length,", async () => {
-      await expect(
-        governorAlpha.propose(targets.concat(other0.address), values, signatures, callDatas, "do nothing")
-      ).to.be.revertedWith("revert GovernorAlpha::propose: proposal function information arity mismatch");
+      await expect(governorAlpha.propose(targets.concat(other0.address), values, signatures, callDatas, "do nothing"))
+              .to.be.revertedWith("revert GovernorAlpha::propose: proposal function information arity mismatch");
 
-      await expect(
-        governorAlpha.propose(targets, values.concat(values), signatures, callDatas, "do nothing")
-      ).to.be.revertedWith("revert GovernorAlpha::propose: proposal function information arity mismatch");
+      await expect(governorAlpha.propose(targets, values.concat(values), signatures, callDatas, "do nothing"))
+              .to.be.revertedWith("revert GovernorAlpha::propose: proposal function information arity mismatch");
 
-      await expect(
-        governorAlpha.propose(targets, values, signatures.concat(signatures), callDatas, "do nothing")
-      ).to.be.revertedWith("revert GovernorAlpha::propose: proposal function information arity mismatch");
+      await expect(governorAlpha.propose(targets, values, signatures.concat(signatures), callDatas, "do nothing"))
+              .to.be.revertedWith("revert GovernorAlpha::propose: proposal function information arity mismatch");
 
-      await expect(
-        governorAlpha.propose(targets, values, signatures, callDatas.concat(callDatas), "do nothing")
-      ).to.be.revertedWith("revert GovernorAlpha::propose: proposal function information arity mismatch");
+      await expect(governorAlpha.propose(targets, values, signatures, callDatas.concat(callDatas), "do nothing"))
+              .to.be.revertedWith("revert GovernorAlpha::propose: proposal function information arity mismatch");
     });
 
     it("or if that length is zero or greater than Max Operations.", async () => {
-      await expect(
-        governorAlpha.propose([], [], [], [], "do nothing")
-      ).to.be.revertedWith("revert GovernorAlpha::propose: must provide actions");
+      await expect(governorAlpha.propose([], [], [], [], "do nothing"))
+        .to.be.revertedWith("revert GovernorAlpha::propose: must provide actions");
     });
 
     describe("Additionally, if there exists a pending or active proposal from the same proposer, we must revert.", () => {
       it("reverts with pending", async () => {
-        await expect(
-          governorAlpha.propose(targets, values, signatures, callDatas, "do nothing")
-        ).to.be.revertedWith("GovernorAlpha::propose: one live proposal per proposer, found an already pending proposal");
+        lastBlock = await provider.getBlock('latest') 
+        await mineBlock(provider, lastBlock.timestamp -1) 
+        await expect(governorAlpha.propose(targets, values, signatures, callDatas, "do nothing"))
+                .to.be.revertedWith("GovernorAlpha::propose: one live proposal per proposer, found an already pending proposal");
       });
 
       it("reverts with active", async () => {
@@ -126,9 +122,8 @@ describe('GovernorAlpha_Propose', () => {
         await mineBlock(provider, lastBlock.timestamp + 10) 
         await mineBlock(provider, lastBlock.timestamp + 20) 
 
-        await expect(
-          governorAlpha.propose(targets, values, signatures, callDatas, "do nothing")
-        ).to.be.revertedWith("GovernorAlpha::propose: one live proposal per proposer, found an already active proposal");
+        await expect(governorAlpha.propose(targets, values, signatures, callDatas, "do nothing"))
+                .to.be.revertedWith("GovernorAlpha::propose: one live proposal per proposer, found an already active proposal");
       });
     });
   });
@@ -153,11 +148,12 @@ describe('GovernorAlpha_Propose', () => {
     lastBlock = await provider.getBlock('latest') 
     await mineBlock(provider, lastBlock.timestamp + 10) 
 
-    await expect(
-      governorAlpha.connect(other1).propose(targets, values, signatures, callDatas, "second proposal")
-    )
+    let response = await governorAlpha.connect(other1).propose(targets, values, signatures, callDatas, "second proposal")
+    lastBlock = await provider.getBlock('latest') 
+
+    await expect(response)    
       .to.emit(governorAlpha, 'ProposalCreated')
-      .withArgs(  proposalId.add(1), other1.address, targets, values, signatures, callDatas, lastBlock.number + 3, 
-                  lastBlock.number + 3 + 5, "second proposal")   // 5 is just for testing, real value is 40_320 (7 days) (Compound is 3 days)
+      .withArgs(  proposalId.add(1), other1.address, targets, values, signatures, callDatas, lastBlock.timestamp, 
+                  lastBlock.timestamp + 7*24*3600, "second proposal")
   })
 })
