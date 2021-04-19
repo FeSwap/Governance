@@ -127,7 +127,6 @@ contract Fesw {
         emit Transfer(address(0), dst, amount);
 
         // move delegates
-        if(delegates[dst] == address(0))  delegates[dst] = dst;
         _moveDelegates(address(0), delegates[dst], amount);
     }
 
@@ -146,7 +145,7 @@ contract Fesw {
         emit Transfer(minterBurner, address(0), amount);
 
         // move delegates
-        _moveDelegates( minterBurner, address(0), amount);
+        _moveDelegates(delegates[minterBurner], address(0), amount);
     }
 
     /**
@@ -353,8 +352,6 @@ contract Fesw {
         balances[dst] = add96(balances[dst], amount, "FESW::_transferTokens: transfer amount overflows");
         emit Transfer(src, dst, amount);
 
-        // Every DESW token hase vote right by default, if not delegated to someone else, delegated to oneself by default
-        if(delegates[dst] == address(0))  delegates[dst] = dst;
         _moveDelegates(delegates[src], delegates[dst], amount);
     }
 

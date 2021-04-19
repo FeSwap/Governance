@@ -167,34 +167,21 @@ describe('Feswap', () => {
   })
 
 
-  it('Transfer/TransferFrom delegation', async () => {
+  it('Transfer/TransferFrom gas fee', async () => {
     // initial supply has no vote rights by default
     expect(await Feswa.getCurrentVotes(wallet.address)).to.be.eq(expandTo18Decimals(0)) 
 
     let tx = await Feswa.transfer(other0.address, expandTo18Decimals(200))
     let currentVotes0 = await Feswa.getCurrentVotes(other0.address)
-    expect(currentVotes0).to.be.eq(expandTo18Decimals(200))
+    expect(currentVotes0).to.be.eq(expandTo18Decimals(0))
     let receipt = await tx.wait()   
-    expect(receipt.gasUsed).to.eq(122110)        //66839
+    expect(receipt.gasUsed).to.eq(55100)       
 
     tx = await Feswa.connect(other0).transfer(other1.address, expandTo18Decimals(50))
     let currentVotes1 = await Feswa.getCurrentVotes(other1.address)
-    expect(currentVotes1).to.be.eq(expandTo18Decimals(50))
-    currentVotes0 = await Feswa.getCurrentVotes(other0.address)
-    expect(currentVotes0).to.be.eq(expandTo18Decimals(150))
+    expect(currentVotes1).to.be.eq(expandTo18Decimals(0))
     receipt = await tx.wait()   
-    expect(receipt.gasUsed).to.eq(154193)        
-
-    tx = await Feswa.transfer(other1.address, expandTo18Decimals(300))
-    currentVotes1 = await Feswa.getCurrentVotes(other1.address)
-    expect(currentVotes1).to.be.eq(expandTo18Decimals(350))
-    receipt = await tx.wait()   
-    expect(receipt.gasUsed).to.eq(73162)    
-    
-    tx = await Feswa.connect(other0).transfer(other1.address, expandTo18Decimals(50))
-    receipt = await tx.wait()   
-    expect(receipt.gasUsed).to.eq(105245)        
-
+    expect(receipt.gasUsed).to.eq(55100)        
   })
 
   it('nested delegation', async () => {
@@ -203,15 +190,19 @@ describe('Feswap', () => {
 
     let currentVotes0 = await Feswa.getCurrentVotes(other0.address)
     let currentVotes1 = await Feswa.getCurrentVotes(other1.address)
-    expect(currentVotes0).to.be.eq(expandTo18Decimals(1))
-    expect(currentVotes1).to.be.eq(expandTo18Decimals(2))
+    expect(currentVotes0).to.be.eq(expandTo18Decimals(0))
+    expect(currentVotes1).to.be.eq(expandTo18Decimals(0))
 
     let tx = await Feswa.connect(other0).delegate(other1.address)
     let receipt = await tx.wait()   
-    expect(receipt.gasUsed).to.eq(94956)       
+    expect(receipt.gasUsed).to.eq(90922)  
 
     currentVotes1 = await Feswa.getCurrentVotes(other1.address)
-    expect(currentVotes1).to.be.eq(expandTo18Decimals(3))
+    expect(currentVotes1).to.be.eq(expandTo18Decimals(1))
+
+    await Feswa.connect(other1).delegate(other1.address)
+    currentVotes1 = await Feswa.getCurrentVotes(other1.address)
+    expect(currentVotes1).to.be.eq(expandTo18Decimals(1).add(expandTo18Decimals(2)))
 
     // only can delegate the part corresponding to balance oneself
     await Feswa.connect(other1).delegate(other0.address)
@@ -244,7 +235,7 @@ describe('Feswap', () => {
     await Feswa.connect(other0).mint(other1.address, mintCap)
 
     expect(await Feswa.balanceOf(other1.address)).to.be.eq(mintCap)
-    expect(await Feswa.getCurrentVotes(other1.address)).to.be.eq(mintCap)
+    expect(await Feswa.getCurrentVotes(other1.address)).to.be.eq(0)
     expect(await Feswa.totalSupply()).to.be.eq(feswSupply.add(mintCap))
    
     lastBlock = await provider.getBlock('latest')
@@ -274,22 +265,30 @@ describe('Feswap', () => {
             .to.be.revertedWith(' FESW::burn: No FESW token to burn')
 
     // prepare to burn 1000 FESW     
-    await Feswa.transfer(other0.address, expandTo18Decimals(1000))
+    await Feswa.transfer(other1.address, expandTo18Decimals(1000))
+    await Feswa.connect(other1).delegate(other1.address)
+    let currentVotes1 = await Feswa.getCurrentVotes(other1.address)
+    expect(currentVotes1).to.be.eq(expandTo18Decimals(1000))   
+    
+    await Feswa.connect(other1).transfer(other0.address, expandTo18Decimals(300))
 
+    // default to no vote right to save gas fee for transfer
+    currentVotes1 = await Feswa.getCurrentVotes(other1.address)
+    expect(currentVotes1).to.be.eq(expandTo18Decimals(700)) 
     let currentVotes = await Feswa.getCurrentVotes(other0.address)
-    expect(currentVotes).to.be.eq(expandTo18Decimals(1000))
+    expect(currentVotes).to.be.eq(expandTo18Decimals(0))
 
     let totalSupply:BigNumber = await Feswa.totalSupply()
     expect(totalSupply).to.be.eq(expandTo18Decimals(1_000_000_000))
 
     await expect(Feswa.connect(other0).burn(overrides))
             .to.emit(Feswa,'Transfer')
-            .withArgs(other0.address, constants.AddressZero, expandTo18Decimals(1000))
+            .withArgs(other0.address, constants.AddressZero, expandTo18Decimals(300))
 
     // check balance, vote, and total supply         
     expect(await Feswa.balanceOf(other0.address)).to.be.eq(expandTo18Decimals(0))  
     expect(await Feswa.getCurrentVotes(other0.address)).to.be.eq(expandTo18Decimals(0))  
-    expect(await Feswa.totalSupply()).to.be.eq(totalSupply.sub(expandTo18Decimals(1000)))  
+    expect(await Feswa.totalSupply()).to.be.eq(totalSupply.sub(expandTo18Decimals(300)))  
 
   })
 
