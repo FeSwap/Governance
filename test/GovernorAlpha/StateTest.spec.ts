@@ -96,13 +96,7 @@ describe('GovernorAlpha State Test', () => {
   it("Defeated", async () => {
     // travel to end block
     lastBlock = await provider.getBlock('latest')
-    await mineBlock(provider, lastBlock.timestamp + 10)
-    await mineBlock(provider, lastBlock.timestamp + 20)
-    await mineBlock(provider, lastBlock.timestamp + 30)
-    await mineBlock(provider, lastBlock.timestamp + 40)
-    await mineBlock(provider, lastBlock.timestamp + 50)
-    await mineBlock(provider, lastBlock.timestamp + 60)
-    await mineBlock(provider, lastBlock.timestamp + 70)
+    await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
     expect(await governorAlpha.state(proposalId)).to.be.eq(ProposalState.Defeated)
   })
@@ -117,11 +111,7 @@ describe('GovernorAlpha State Test', () => {
     await mineBlock(provider, lastBlock.timestamp + 10)
     await governorAlpha.connect(other0).castVote(newProposalId, true)
  
-    await mineBlock(provider, lastBlock.timestamp + 30)
-    await mineBlock(provider, lastBlock.timestamp + 40)
-    await mineBlock(provider, lastBlock.timestamp + 50)
-    await mineBlock(provider, lastBlock.timestamp + 60)
-    await mineBlock(provider, lastBlock.timestamp + 70)
+    await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
     expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Succeeded)
   })
@@ -136,11 +126,7 @@ describe('GovernorAlpha State Test', () => {
     await mineBlock(provider, lastBlock.timestamp + 10)
     await governorAlpha.connect(other0).castVote(newProposalId, true)
  
-    await mineBlock(provider, lastBlock.timestamp + 30)
-    await mineBlock(provider, lastBlock.timestamp + 40)
-    await mineBlock(provider, lastBlock.timestamp + 50)
-    await mineBlock(provider, lastBlock.timestamp + 60)
-    await mineBlock(provider, lastBlock.timestamp + 70)
+    await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
     await governorAlpha.queue(newProposalId)
     expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Queued)
@@ -156,11 +142,7 @@ describe('GovernorAlpha State Test', () => {
     await mineBlock(provider, lastBlock.timestamp + 10)
     await governorAlpha.connect(other0).castVote(newProposalId, true)
  
-    await mineBlock(provider, lastBlock.timestamp + 30)
-    await mineBlock(provider, lastBlock.timestamp + 40)
-    await mineBlock(provider, lastBlock.timestamp + 50)
-    await mineBlock(provider, lastBlock.timestamp + 60)
-    await mineBlock(provider, lastBlock.timestamp + 70)
+    await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
     await governorAlpha.queue(newProposalId)
     expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Queued)
@@ -187,11 +169,7 @@ describe('GovernorAlpha State Test', () => {
     await mineBlock(provider, lastBlock.timestamp + 10)
     await governorAlpha.connect(other0).castVote(newProposalId, true)
  
-    await mineBlock(provider, lastBlock.timestamp + 30)
-    await mineBlock(provider, lastBlock.timestamp + 40)
-    await mineBlock(provider, lastBlock.timestamp + 50)
-    await mineBlock(provider, lastBlock.timestamp + 60)
-    await mineBlock(provider, lastBlock.timestamp + 70)
+    await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
     await governorAlpha.queue(newProposalId)
     expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Queued)

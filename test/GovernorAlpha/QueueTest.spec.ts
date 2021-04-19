@@ -79,7 +79,6 @@ describe('GovernorAlpha Queue Test', () => {
       await governorAlpha.connect(other0).castVote(proposalId, true, overrides)
 
       await mineBlock(provider, lastBlock.timestamp + 20)
-      await mineBlock(provider, lastBlock.timestamp + 30)
 
       // TP1：Check the proposal state be in Active state
       expect(await governorAlpha.state(proposalId)).to.be.equal(BigNumber.from(ProposalState.Active)) 
@@ -88,8 +87,7 @@ describe('GovernorAlpha Queue Test', () => {
       await expect(governorAlpha.connect(other0).queue(proposalId, overrides))
             .to.be.revertedWith("GovernorAlpha::queue: proposal can only be queued if it is succeeded")
 
-      await mineBlock(provider, lastBlock.timestamp + 40)
-      await mineBlock(provider, lastBlock.timestamp + 50)
+      await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
       // TP3: Reverts on queueing overlapping actions in same proposal
       await expect(governorAlpha.connect(other0).queue(proposalId, overrides))
@@ -121,10 +119,7 @@ describe('GovernorAlpha Queue Test', () => {
       await governorAlpha.connect(other0).castVote(proposalId1, true, overrides)
       await governorAlpha.connect(other1).castVote(proposalId2, true, overrides)
 
-      await mineBlock(provider, lastBlock.timestamp + 20)
-      await mineBlock(provider, lastBlock.timestamp + 30)
-      await mineBlock(provider, lastBlock.timestamp + 40)
-      await mineBlock(provider, lastBlock.timestamp + 50)
+      await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
       // TP1: Queue succeed for proposal 1
       await governorAlpha.queue(proposalId1, overrides)
@@ -132,7 +127,7 @@ describe('GovernorAlpha Queue Test', () => {
 
       // TP2: Check the eta be set correctly
       lastBlock = await provider.getBlock('latest')
-      expect(proposal.eta).to.be.equal(lastBlock.timestamp + 3600*48)
+      expect(proposal.eta).to.be.equal(lastBlock.timestamp + 48 * 3600)
   
       // TP3: Reverts on queueing overlapping actions in different proposals
       await expect(governorAlpha.queue(proposalId2, overrides))
