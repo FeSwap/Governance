@@ -57,8 +57,6 @@ describe('FeswaNFT', () => {
     TokenB = fixture.TokenB   
     Feswa = fixture.Feswa
     FeswaNFT = fixture.FeswaNFT
-
-
   })
 
   /* 
@@ -76,6 +74,7 @@ describe('FeswaNFT', () => {
   })
 
   it('BidFeswaPair: Basic checking', async () => {
+    await mineBlock(provider, BidStartTime)
     await expect(FeswaNFT.BidFeswaPair(TokenA.address, TokenB.address, other0.address))
       .to.be.revertedWith('FESN: BID NOT STARTED')
     await mineBlock(provider, BidStartTime + 1)
@@ -357,7 +356,7 @@ describe('BidFeswaState: checking state transition and airdrop amount', () => {
     // still in BidPhase at last second, and check airdrop                            
     let lastBlock = await provider.getBlock('latest')
     let creatTime = lastBlock.timestamp
-    await mineBlock(provider, lastBlock.timestamp + OPEN_BID_DURATION - CLOSE_BID_DELAY -1 )    
+    await mineBlock(provider, lastBlock.timestamp + OPEN_BID_DURATION - CLOSE_BID_DELAY - 2 )    
     await FeswaNFT.connect(other0).BidFeswaPair(TokenA.address, TokenB.address, other0.address,
                                 { ...overrides, value: initPoolPrice.mul(2) } )
                                    
@@ -388,7 +387,7 @@ describe('BidFeswaState: checking state transition and airdrop amount', () => {
 
     // keep in delaying state if no more than CLOSE_BID_DELAY
     lastBlock = await provider.getBlock('latest')
-    await mineBlock(provider, lastBlock.timestamp + CLOSE_BID_DELAY )    
+    await mineBlock(provider, lastBlock.timestamp + CLOSE_BID_DELAY - 2 )    
     await FeswaNFT.connect(other0).BidFeswaPair(TokenA.address, TokenB.address, other0.address,
                                { ...overrides, value: initPoolPrice.mul(4) } )
    
@@ -567,7 +566,7 @@ describe('FeswaPairForSale', () => {
 
     // Second tender: BidDelaying Phase                             
     let lastBlock = await provider.getBlock('latest')
-    await mineBlock(provider, lastBlock.timestamp + OPEN_BID_DURATION) 
+    await mineBlock(provider, lastBlock.timestamp + OPEN_BID_DURATION - 2 ) 
     await FeswaNFT.connect(other0).BidFeswaPair(TokenA.address, TokenB.address, other0.address,
                                { ...overrides, value: initPoolPrice.mul(2) } )  
 

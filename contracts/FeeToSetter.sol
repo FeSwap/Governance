@@ -25,10 +25,10 @@ contract FeeToSetter {
     }
 
     // allows owner to change feeToSetter after vesting
-    function setFeeToSetter(address feeToSetter_) public {
-        require(block.timestamp >= vestingEnd, 'FeeToSetter::setFeeToSetter: not time yet');
-        require(msg.sender == owner, 'FeeToSetter::setFeeToSetter: not allowed');
-        IFeswFactory(factory).setFeeToSetter(feeToSetter_);
+    function setFactoryAdmin(address feeToSetter_) public {
+        require(block.timestamp >= vestingEnd, 'FeeToSetter::setFactoryAdmin: not time yet');
+        require(msg.sender == owner, 'FeeToSetter::setFactoryAdmin: not allowed');
+        IFeswFactory(factory).setFactoryAdmin(feeToSetter_);
     }
 
     // allows owner to turn fees on/off after vesting
@@ -40,6 +40,6 @@ contract FeeToSetter {
 }
 
 interface IFeswFactory {
-    function setFeeToSetter(address) external;
+    function setFactoryAdmin(address) external;
     function setFeeTo(address) external;
 }

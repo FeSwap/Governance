@@ -1,5 +1,5 @@
 import chai, { expect } from 'chai'
-import { Contract, constants} from 'ethers'
+import { Contract, constants, utils} from 'ethers'
 
 import { solidity, MockProvider, createFixtureLoader, deployContract } from 'ethereum-waffle'
 
@@ -10,7 +10,7 @@ import FeeToSetter from '../../build/FeeToSetter.json'
 import FeeTo from '../../build/FeeTo.json'
 import FeswapToken from '../../build/Fesw.json'
 
-import { governanceFixture } from '../shares/fixtures'
+import { FeswaNFTFixture } from '../shares/fixtures'
 import { mineBlock, expandTo18Decimals } from '../shares/utils'
 
 chai.use(solidity)
@@ -18,6 +18,10 @@ chai.use(solidity)
 const overrides = {
   gasLimit: 9999999
 }
+
+const initPoolPrice = expandTo18Decimals(1).div(5)
+const BidStartTime: number = 1615338000   // 2021/02/22 03/10 9:00
+const OPEN_BID_DURATION: number =  (3600 * 24 * 14)
 
 describe('scenario:FeeTo', () => {
   const provider = new MockProvider({
@@ -28,22 +32,30 @@ describe('scenario:FeeTo', () => {
     },
   })
   const [wallet, other0, other1] = provider.getWallets()
-  const loadFixture = createFixtureLoader([wallet], provider)
+  const loadFixture = createFixtureLoader([wallet, other0], provider)
 
-  beforeEach(async () => {
-    await loadFixture(governanceFixture)
+  let Feswa: Contract
+  let FeswaNFT: Contract
+
+  beforeEach('load fixture', async () => {
+    const fixture = await loadFixture(FeswaNFTFixture)
+    Feswa = fixture.Feswa
+    FeswaNFT = fixture.FeswaNFT
   })
+
 
   let factory: Contract
   let router: Contract
+
   beforeEach('deploy Feswap', async () => {
     factory = await deployContract(wallet, FeswapFactory, [wallet.address])
-    router = await deployContract(wallet, FeSwapRouter, [factory.address, other0.address])   // other0 is fake WETH
+    router = await deployContract(wallet, FeSwapRouter, [factory.address, FeswaNFT.address, other0.address])   // other0 is fake WETH
   })
 
   let feeToSetter: Contract
   let vestingEnd: number
   let feeTo: Contract
+  let lastBlock
   beforeEach('deploy feeToSetter vesting contract', async () => {
     // deploy feeTo
     // constructor arg should be timelock, just mocking for testing purposes
@@ -62,8 +74,7 @@ describe('scenario:FeeTo', () => {
 
     // set feeToSetter to be the vesting contract
     await factory.setRouterFeSwap(router.address)    
-    await factory.setFeeToSetter(feeToSetter.address)
-
+    await factory.setFactoryAdmin(feeToSetter.address)
     await mineBlock(provider, vestingEnd)
   })
 
@@ -77,38 +88,47 @@ describe('scenario:FeeTo', () => {
 
   describe('tokens', () => {
     const tokens: Contract[] = []
+    let  tokenIDMatch: any
     beforeEach('make test tokens', async () => {
       const { timestamp: now } = await provider.getBlock('latest')
       const token0 = await deployContract(wallet, FeswapToken, [wallet.address, constants.AddressZero, now + 60 * 60])
       tokens.push(token0)
       const token1 = await deployContract(wallet, FeswapToken, [wallet.address, constants.AddressZero, now + 60 * 60])
       tokens.push(token1)
+
+      await mineBlock(provider, BidStartTime + 1)
+      tokenIDMatch = utils.keccak256( 
+                                utils.solidityPack( ['address', 'address', 'address'],
+                                (tokens[0].address.toLowerCase() <= tokens[1].address.toLowerCase())
+                                ? [FeswaNFT.address, tokens[0].address, tokens[1].address] 
+                                : [FeswaNFT.address, tokens[1].address, tokens[0].address] ) )
+    
+      await FeswaNFT.connect(other1).BidFeswaPair(tokens[0].address, tokens[1].address, other1.address,
+                    { ...overrides, value: initPoolPrice } )
+    
+      // BidDelaying time out
+      lastBlock = await provider.getBlock('latest')
+      await mineBlock(provider, lastBlock.timestamp + OPEN_BID_DURATION + 1 ) 
+      await FeswaNFT.connect(other1).FeswaPairSettle(tokenIDMatch)
     })
 
     let pairAAB: Contract
-    let pairABB: Contract
     beforeEach('create fee liquidity', async () => {
       // turn the fee on
+      await mineBlock(provider, vestingEnd + 10)
       await feeToSetter.toggleFees(true)
 
       // create the pair
-      await router.createFeswaPair(tokens[0].address, tokens[1].address, other1.address, constants.MaxUint256,
-            { ...overrides, value: expandTo18Decimals(1) }
-        )
-      const pairAddressAAB = await factory.getPair(tokens[0].address, tokens[1].address)
-      const pairAddressABB = await factory.getPair(tokens[1].address, tokens[0].address)      
-      pairAAB = new Contract(pairAddressAAB, FeSwapPair.abi).connect(wallet)
-      pairABB = new Contract(pairAddressABB, FeSwapPair.abi).connect(wallet)      
+      await router.connect(other1).ManageFeswaPair(tokenIDMatch, other1.address)
 
+      const pairAddressAAB = await factory.getPair(tokens[0].address, tokens[1].address)
+      pairAAB = new Contract(pairAddressAAB, FeSwapPair.abi).connect(wallet)
+    
       // add liquidity
       await tokens[0].transfer(pairAAB.address, expandTo18Decimals(1))
       await tokens[1].transfer(pairAAB.address, expandTo18Decimals(1))
       await pairAAB.mint(wallet.address)
-
-      await tokens[0].transfer(pairABB.address, expandTo18Decimals(1))
-      await tokens[1].transfer(pairABB.address, expandTo18Decimals(1))
-      await pairABB.mint(wallet.address)
-
+/*
       // swap
       await tokens[0].transfer(pairAAB.address, expandTo18Decimals(1).div(10))
       const amount = expandTo18Decimals(1).div(20)
@@ -118,7 +138,7 @@ describe('scenario:FeeTo', () => {
       await tokens[0].transfer(pairAAB.address, expandTo18Decimals(1))
       await tokens[1].transfer(pairAAB.address, expandTo18Decimals(1))
       await pairAAB.mint(wallet.address, { gasLimit: 9999999 })
-      
+    */
     })
 
     it('updateTokenAllowState', async () => {

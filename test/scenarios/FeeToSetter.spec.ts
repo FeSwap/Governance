@@ -45,7 +45,7 @@ describe('scenario:FeeToSetter', () => {
     ])
 
     // set feeToSetter to be the vesting contract
-    await factory.setFeeToSetter(feeToSetter.address)
+    await factory.setFactoryAdmin(feeToSetter.address)
   })
 
   it('setOwner:fail', async () => {
@@ -58,19 +58,19 @@ describe('scenario:FeeToSetter', () => {
     await feeToSetter.setOwner(other.address)
   })
 
-  it('setFeeToSetter:fail', async () => {
-    await expect(feeToSetter.setFeeToSetter(other.address)).to.be.revertedWith(
-      'FeeToSetter::setFeeToSetter: not time yet'
+  it('setFactoryAdmin:fail', async () => {
+    await expect(feeToSetter.setFactoryAdmin(other.address)).to.be.revertedWith(
+      'FeeToSetter::setFactoryAdmin: not time yet'
     )
     await mineBlock(provider, vestingEnd)
-    await expect(feeToSetter.connect(other).setFeeToSetter(other.address)).to.be.revertedWith(
-      'FeeToSetter::setFeeToSetter: not allowed'
+    await expect(feeToSetter.connect(other).setFactoryAdmin(other.address)).to.be.revertedWith(
+      'FeeToSetter::setFactoryAdmin: not allowed'
     )
   })
 
-  it('setFeeToSetter', async () => {
+  it('setFactoryAdmin', async () => {
     await mineBlock(provider, vestingEnd)
-    await feeToSetter.setFeeToSetter(other.address)
+    await feeToSetter.setFactoryAdmin(other.address)
   })
 
   it('toggleFees:fail', async () => {
@@ -81,8 +81,8 @@ describe('scenario:FeeToSetter', () => {
 
   it('toggleFees', async () => {
     let feeTo = await factory.feeTo()
-    expect(feeTo).to.be.eq(wallet.address)
-
+    expect(feeTo).to.be.eq(constants.AddressZero)
+  
     await mineBlock(provider, vestingEnd)
 
     await feeToSetter.toggleFees(true)
