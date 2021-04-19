@@ -15,12 +15,8 @@ contract GovernorAlpha {
     /// @notice The maximum number of actions that can be included in a proposal
     function proposalMaxOperations() public pure returns (uint) { return 10; } // 10 actions
 
-    /// @notice The delay before voting on a proposal may take place, once proposed
-    function votingDelay() public pure returns (uint) { return 1; } // 1 block
-
     /// @notice The duration of voting on a proposal, in blocks
-//    function votingPeriod() public pure returns (uint) { return 40_320; } // ~7 days in blocks (assuming 15s blocks)
-    function votingPeriod() public pure returns (uint) { return 5; } // for testing
+    function votingPeriod() public pure returns (uint) { return 7 * 24 * 3600; } // 7 days
 
     /// @notice The address of the Feswap Protocol Timelock
     TimelockInterface public timelock;
@@ -50,9 +46,6 @@ contract GovernorAlpha {
         // Creator of the proposal
         address proposer;
 
-        // The timestamp that the proposal will be available for execution, set once the vote succeeds
-        uint eta;
-
         // the ordered list of target addresses for calls to be made
         address[] targets;
 
@@ -66,10 +59,14 @@ contract GovernorAlpha {
         bytes[] calldatas;
 
         // The block at which voting begins: holders must delegate their votes prior to this block
-        uint startBlock;
+        uint startBlock;        
+        uint startBlockTime;
 
         // The block at which voting ends: votes must be cast prior to this block
-        uint endBlock;
+        uint endBlockTime;
+
+        // The timestamp that the proposal will be available for execution, set once the vote succeeds
+        uint eta;
 
         // Current number of votes in favor of this proposal
         uint forVotes;
@@ -112,7 +109,7 @@ contract GovernorAlpha {
     bytes32 public constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,bool support)");
 
     /// @notice An event emitted when a new proposal is created
-    event ProposalCreated(uint id, address proposer, address[] targets, uint[] values, string[] signatures, bytes[] calldatas, uint startBlock, uint endBlock, string description);
+    event ProposalCreated(uint id, address proposer, address[] targets, uint[] values, string[] signatures, bytes[] calldatas, uint startBlockTime, uint endBlockTime, string description);
 
     /// @notice An event emitted when a vote has been cast on a proposal
     event VoteCast(address voter, uint proposalId, bool support, uint votes);
@@ -144,8 +141,8 @@ contract GovernorAlpha {
           require(proposersLatestProposalState != ProposalState.Pending, "GovernorAlpha::propose: one live proposal per proposer, found an already pending proposal");
         }
 
-        uint startBlock = add256(block.number, votingDelay());
-        uint endBlock = add256(startBlock, votingPeriod());
+        uint startBlockTime = block.timestamp;
+        uint endBlockTime = add256(startBlockTime, votingPeriod());
 
         proposalCount++;
         Proposal memory newProposal;
@@ -155,13 +152,14 @@ contract GovernorAlpha {
         newProposal.values = values;
         newProposal.signatures = signatures;
         newProposal.calldatas = calldatas;
-        newProposal.startBlock = startBlock;
-        newProposal.endBlock = endBlock;
+        newProposal.startBlock = block.number;
+        newProposal.startBlockTime = startBlockTime;
+        newProposal.endBlockTime = endBlockTime;
         
         proposals[newProposal.id] = newProposal;
         latestProposalIds[newProposal.proposer] = newProposal.id;
 
-        emit ProposalCreated(newProposal.id, msg.sender, targets, values, signatures, calldatas, startBlock, endBlock, description);
+        emit ProposalCreated(newProposal.id, msg.sender, targets, values, signatures, calldatas, startBlockTime, endBlockTime, description);
         return newProposal.id;
     }
 
@@ -219,9 +217,9 @@ contract GovernorAlpha {
         Proposal storage proposal = proposals[proposalId];
         if (proposal.canceled) {
             return ProposalState.Canceled;
-        } else if (block.number <= proposal.startBlock) {
+        } else if (block.timestamp <= proposal.startBlockTime) {
             return ProposalState.Pending;
-        } else if (block.number <= proposal.endBlock) {
+        } else if (block.timestamp <= proposal.endBlockTime) {
             return ProposalState.Active;
         } else if (proposal.forVotes <= proposal.againstVotes || proposal.forVotes < quorumVotes()) {
             return ProposalState.Defeated;

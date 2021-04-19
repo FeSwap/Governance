@@ -58,7 +58,7 @@ describe('Feswap', () => {
     expect(await Feswa.balanceOf(wallet.address)).to.eq(TOTAL_SUPPLY)
     expect(await Feswa.nonces(wallet.address)).to.eq(BigNumber.from(0))
     expect(await Feswa.minimumTimeBetweenMints()).to.eq(BigNumber.from(365*24*3600))
-    expect(await Feswa.mintCap()).to.eq(BigNumber.from(10_000_000))
+    expect(await Feswa.mintCap()).to.eq(expandTo18Decimals(10_000_000))
     expect(await Feswa.DOMAIN_TYPEHASH()).to.eq(
       utils.keccak256(utils.toUtf8Bytes('EIP712Domain(string name,uint256 chainId,address verifyingContract)'))
     )
@@ -70,21 +70,22 @@ describe('Feswap', () => {
     )
   })
 
-  it('setMinter', async () => {
+  it('setMinterBurner', async () => {
     // check miner is set to TimeLock contract
-    expect(await Feswa.minter()).to.eq(timelock.address)
+    expect(await Feswa.minterBurner()).to.eq(timelock.address)
 
     // SetMiner can only be called by TimeLock
-    await expect(Feswa.setMinter(other0.address))
+    await expect(Feswa.setMinterBurner(other0.address))
             .to.be.revertedWith('FESW::setMinter: only the minter can change the minter address')
 
     // Prepare the proposal, through the proposal to change the Minter.
     // In this way, also check governance mechanism 
     const targets = [Feswa.address];
     const values = ["0"];
-    const signatures = ["setMinter(address)"];
+    const signatures = ["setMinterBurner(address)"];
     const callDatas = [encodeParameters(['address'], [other0.address])];
-  
+
+    // only the initial account need to delegate to itself
     await Feswa.delegate(wallet.address);
     await governorAlpha.propose(targets, values, signatures, callDatas, "setMinter to other0");
     proposalId = await governorAlpha.latestProposalIds(wallet.address);
@@ -95,16 +96,12 @@ describe('Feswap', () => {
 
     await governorAlpha.castVote(proposalId, true, overrides);
  
-//    does not work for ganache provider    
-//    await advanceBlocks(provider, 40_320)
-    //  Need to increase 6 blocks to queue the proposal (castVote mine one block automatically)
+    //  Need to increase 7*24*3600 seconds to queue the proposal 
     await mineBlock(provider, lastBlock.timestamp + 20)
-    await mineBlock(provider, lastBlock.timestamp + 30)
     await expect(governorAlpha.queue(proposalId, overrides))
           .to.be.revertedWith('GovernorAlpha::queue: proposal can only be queued if it is succeeded')
 
-    await mineBlock(provider, lastBlock.timestamp + 40)
-    await mineBlock(provider, lastBlock.timestamp + 50)
+    await mineBlock(provider, lastBlock.timestamp +  7*24*3600 + 1)
     await governorAlpha.queue(proposalId, overrides)
 
     // Simutate time daly (2 days) to execute proposal
@@ -118,7 +115,8 @@ describe('Feswap', () => {
     await mineBlock(provider, lastBlock.timestamp + 3600 * 24)
  
     await governorAlpha.execute(proposalId, overrides)
-    expect(await Feswa.minter()).to.eq(other0.address)
+    expect(await Feswa.minterBurner()).to.eq(other0.address)
+  
   })
   
   it('permit', async () => {
@@ -157,6 +155,9 @@ describe('Feswap', () => {
     await expect(Feswa.connect(other0).transferFrom(owner, spender, value))
             .to.be.revertedWith('FESW::transferFrom: transfer amount exceeds spender allowance')
 
+    await expect(Feswa.permit(other1.address, spender, value, deadline, v, utils.hexlify(r), utils.hexlify(s), overrides))
+            .to.be.revertedWith('FESW::permit: unauthorized')    
+
     await Feswa.permit(owner, spender, value, deadline, v, utils.hexlify(r), utils.hexlify(s), overrides)
 
     expect(await Feswa.allowance(owner, spender)).to.eq(value)
@@ -165,38 +166,68 @@ describe('Feswap', () => {
     await Feswa.connect(other0).transferFrom(owner, spender, value)
   })
 
+
+  it('Transfer/TransferFrom delegation', async () => {
+    // initial supply has no vote rights by default
+    expect(await Feswa.getCurrentVotes(wallet.address)).to.be.eq(expandTo18Decimals(0)) 
+
+    let tx = await Feswa.transfer(other0.address, expandTo18Decimals(200))
+    let currentVotes0 = await Feswa.getCurrentVotes(other0.address)
+    expect(currentVotes0).to.be.eq(expandTo18Decimals(200))
+    let receipt = await tx.wait()   
+    expect(receipt.gasUsed).to.eq(122110)        //66839
+
+    tx = await Feswa.connect(other0).transfer(other1.address, expandTo18Decimals(50))
+    let currentVotes1 = await Feswa.getCurrentVotes(other1.address)
+    expect(currentVotes1).to.be.eq(expandTo18Decimals(50))
+    currentVotes0 = await Feswa.getCurrentVotes(other0.address)
+    expect(currentVotes0).to.be.eq(expandTo18Decimals(150))
+    receipt = await tx.wait()   
+    expect(receipt.gasUsed).to.eq(154193)        
+
+    tx = await Feswa.transfer(other1.address, expandTo18Decimals(300))
+    currentVotes1 = await Feswa.getCurrentVotes(other1.address)
+    expect(currentVotes1).to.be.eq(expandTo18Decimals(350))
+    receipt = await tx.wait()   
+    expect(receipt.gasUsed).to.eq(73162)    
+    
+    tx = await Feswa.connect(other0).transfer(other1.address, expandTo18Decimals(50))
+    receipt = await tx.wait()   
+    expect(receipt.gasUsed).to.eq(105245)        
+
+  })
+
   it('nested delegation', async () => {
     await Feswa.transfer(other0.address, expandTo18Decimals(1))
     await Feswa.transfer(other1.address, expandTo18Decimals(2))
 
     let currentVotes0 = await Feswa.getCurrentVotes(other0.address)
     let currentVotes1 = await Feswa.getCurrentVotes(other1.address)
-    expect(currentVotes0).to.be.eq(0)
-    expect(currentVotes1).to.be.eq(0)
+    expect(currentVotes0).to.be.eq(expandTo18Decimals(1))
+    expect(currentVotes1).to.be.eq(expandTo18Decimals(2))
 
-    await Feswa.connect(other0).delegate(other1.address)
+    let tx = await Feswa.connect(other0).delegate(other1.address)
+    let receipt = await tx.wait()   
+    expect(receipt.gasUsed).to.eq(94956)       
+
     currentVotes1 = await Feswa.getCurrentVotes(other1.address)
-    expect(currentVotes1).to.be.eq(expandTo18Decimals(1))
+    expect(currentVotes1).to.be.eq(expandTo18Decimals(3))
 
-    await Feswa.connect(other1).delegate(other1.address)
-    currentVotes1 = await Feswa.getCurrentVotes(other1.address)
-    expect(currentVotes1).to.be.eq(expandTo18Decimals(1).add(expandTo18Decimals(2)))
-
+    // only can delegate the part corresponding to balance oneself
     await Feswa.connect(other1).delegate(other0.address)
     currentVotes1 = await Feswa.getCurrentVotes(other1.address)
     expect(currentVotes1).to.be.eq(expandTo18Decimals(1))
 
     currentVotes0 = await Feswa.getCurrentVotes(other0.address)
     expect(currentVotes0).to.be.eq(expandTo18Decimals(2))
-
   })
 
   it('mints', async () => {
     const { timestamp: now } = await provider.getBlock('latest')
-    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, wallet.address, now + 60 * 60])
-    const supply = await Feswa.totalSupply()
+    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60])
+    const feswSupply = await Feswa.totalSupply()
 
-    await expect(Feswa.mint(wallet.address, 1))
+    await expect(Feswa.connect(other0).mint(wallet.address, 1))
             .to.be.revertedWith('FESW::mint: minting not allowed yet')
 
     let timestamp = BigNumber.from(now + 60*60)
@@ -205,22 +236,62 @@ describe('Feswap', () => {
     await expect(Feswa.connect(other1).mint(other1.address, 1))
             .to.be.revertedWith('FESW::mint: only the minter can mint')
 
-    await expect(Feswa.mint('0x0000000000000000000000000000000000000000', 1))
+    await expect(Feswa.connect(other0).mint(constants.AddressZero, 1))
             .to.be.revertedWith('FESW::mint: cannot transfer to the zero address')
 
     // can mint up to 10_000_000
     const mintCap = BigNumber.from(await Feswa.mintCap())
-    await Feswa.mint(wallet.address, mintCap)
-    expect(await Feswa.balanceOf(wallet.address)).to.be.eq(supply.add(mintCap))
+    await Feswa.connect(other0).mint(other1.address, mintCap)
 
+    expect(await Feswa.balanceOf(other1.address)).to.be.eq(mintCap)
+    expect(await Feswa.getCurrentVotes(other1.address)).to.be.eq(mintCap)
+    expect(await Feswa.totalSupply()).to.be.eq(feswSupply.add(mintCap))
+   
     lastBlock = await provider.getBlock('latest')
     expect(await Feswa.mintingAllowedAfter()).to.be.eq(lastBlock.timestamp + 365*24*3600)
 
+    await expect(Feswa.connect(other0).mint(other1.address, 1))
+            .to.be.revertedWith('FESW::mint: minting not allowed yet')
+
+    // skip to next minting-available time 
     timestamp = await Feswa.mintingAllowedAfter()
     await mineBlock(provider, timestamp.toNumber())
 
     // cannot mint more than 10_000_000
-    await expect(Feswa.mint(wallet.address, mintCap.add(1)))
+    await expect(Feswa.connect(other0).mint(wallet.address, mintCap.add(1)))
             .to.be.revertedWith('FESW::mint: exceeded mint cap')
+
   })
+
+  it('burn', async () => {
+    const { timestamp: now } = await provider.getBlock('latest')
+    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60])
+
+    await expect(Feswa.connect(other1).burn())
+            .to.be.revertedWith('FESW::burn: Only the burner can burn')
+
+    await expect(Feswa.connect(other0).burn())
+            .to.be.revertedWith(' FESW::burn: No FESW token to burn')
+
+    // prepare to burn 1000 FESW     
+    await Feswa.transfer(other0.address, expandTo18Decimals(1000))
+
+    let currentVotes = await Feswa.getCurrentVotes(other0.address)
+    expect(currentVotes).to.be.eq(expandTo18Decimals(1000))
+
+    let totalSupply:BigNumber = await Feswa.totalSupply()
+    expect(totalSupply).to.be.eq(expandTo18Decimals(1_000_000_000))
+
+    await expect(Feswa.connect(other0).burn(overrides))
+            .to.emit(Feswa,'Transfer')
+            .withArgs(other0.address, constants.AddressZero, expandTo18Decimals(1000))
+
+    // check balance, vote, and total supply         
+    expect(await Feswa.balanceOf(other0.address)).to.be.eq(expandTo18Decimals(0))  
+    expect(await Feswa.getCurrentVotes(other0.address)).to.be.eq(expandTo18Decimals(0))  
+    expect(await Feswa.totalSupply()).to.be.eq(totalSupply.sub(expandTo18Decimals(1000)))  
+
+  })
+
 })
+

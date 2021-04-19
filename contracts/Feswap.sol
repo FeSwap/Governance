@@ -27,7 +27,7 @@ contract Fesw {
     uint32 public constant minimumTimeBetweenMints = 1 days * 365;
 
     /// @notice Cap that can be minted at each mint after 5 years
-    uint public constant mintCap = 10_000_000;      // 10 million FESW
+    uint public constant mintCap = 10_000_000e18;      // 10 million FESW
 
     // @notice Allowance amounts on behalf of others
     // Documentation tag @notice not valid for non-public state variables
@@ -127,7 +127,26 @@ contract Fesw {
         emit Transfer(address(0), dst, amount);
 
         // move delegates
+        if(delegates[dst] == address(0))  delegates[dst] = dst;
         _moveDelegates(address(0), delegates[dst], amount);
+    }
+
+    /**
+     * @notice Burn some tokens
+     */
+    function burn() external {
+        require(msg.sender == minterBurner, "FESW::burn: Only the burner can burn");
+
+        // burn the amount
+        uint96 amount = balances[minterBurner];
+        require(amount != 0, "FESW::burn: No FESW token to burn");
+
+        balances[minterBurner] = 0;
+        totalSupply = SafeMath.sub(totalSupply, amount);
+        emit Transfer(minterBurner, address(0), amount);
+
+        // move delegates
+        _moveDelegates( minterBurner, address(0), amount);
     }
 
     /**
@@ -232,7 +251,7 @@ contract Fesw {
 
             emit Approval(src, spender, newAllowance);
         }
-
+        
         _transferTokens(src, dst, amount);
         return true;
     }
@@ -334,6 +353,8 @@ contract Fesw {
         balances[dst] = add96(balances[dst], amount, "FESW::_transferTokens: transfer amount overflows");
         emit Transfer(src, dst, amount);
 
+        // Every DESW token hase vote right by default, if not delegated to someone else, delegated to oneself by default
+        if(delegates[dst] == address(0))  delegates[dst] = dst;
         _moveDelegates(delegates[src], delegates[dst], amount);
     }
 

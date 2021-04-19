@@ -64,12 +64,13 @@ describe('castVote', () => {
   }
 
   it("Voting block number should be between the proposal's start block (exclusive) and end block (inclusive)", async () => {
-    //Voting block number should be between the proposal's start block (exclusive) and end block (inclusive)
 //    lastBlock = await provider.getBlock('latest') ; console.log("lastBlockAAAA", lastBlock)
+    let timestamp = lastBlock.timestamp
+    await mineBlock(provider, timestamp-1)
     await expect(governorAlpha.castVote(proposalId, true)).to.be.revertedWith('GovernorAlpha::_castVote: voting is closed')
   })
 
-    it("Such proposal already has an entry in its voters set matching the sender", async () => {
+  it("Such proposal already has an entry in its voters set matching the sender", async () => {
     let timestamp = lastBlock.timestamp
     await mineBlock(provider, timestamp + 10)
     await mineBlock(provider, timestamp + 20)

@@ -183,7 +183,7 @@ describe('FeswapSponsor', () => {
     await mineBlock(provider, startTime + 10)
     let tx = await sponsorContract.connect(other1).Sponsor(other0.address, { ...overrides, value: ETHOne.mul(200) } )
     let receipt = await tx.wait()   
-    expect(receipt.gasUsed).to.eq(66839) 
+    expect(receipt.gasUsed).to.eq(131984)        //66839
 
     // 1. Try to finalize the sponsor while it is still on going 
     await expect(sponsorContract.finalizeSponsor())

@@ -45,8 +45,7 @@ describe('GovernorAlpha', () => {
 
   it('governor', async () => {
     const votingPeriod = await governorAlpha.votingPeriod()
-//    expect(votingPeriod).to.be.eq(40320)
-    expect(votingPeriod).to.be.eq(5)        // for Testing
+    expect(votingPeriod).to.be.eq(604800)
     const timelockAddress = await governorAlpha.timelock()
     expect(timelockAddress).to.be.eq(timelock.address)
     const FeswaFromGovernor = await governorAlpha.Feswa()
