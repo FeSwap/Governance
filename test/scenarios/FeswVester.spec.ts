@@ -60,7 +60,7 @@ describe('scenario:TreasuryVester', () => {
 
   it('claim:fail', async () => {
     await expect(treasuryVester.claim()).to.be.revertedWith('FeswVester::claim: not time yet')
-    await mineBlock(provider, vestingCliff - 1)
+    await mineBlock(provider, vestingCliff - 2)
     await expect(treasuryVester.claim()).to.be.revertedWith('FeswVester::claim: not time yet')
   })
 

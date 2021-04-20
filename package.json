@@ -16,7 +16,7 @@
         "test": "mocha"
     },
     "devDependencies": {
-        "@openzeppelin/contracts": "^3.4.0",
+        "@openzeppelin/contracts": "3.4.0",
         "@types/chai": "^4.2.12",
         "@types/mocha": "^8.0.3",
         "chai": "^4.2.0",
