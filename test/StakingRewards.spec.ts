@@ -79,6 +79,7 @@ describe('StakingRewards', () => {
     const rewardAmount = await rewardsToken.balanceOf(staker.address)
     expect(reward.sub(rewardAmount).lte(reward.div(10000))).to.be.true // ensure result is within .01%
     expect(rewardAmount).to.be.eq(reward.div(REWARDS_DURATION).mul(REWARDS_DURATION))
+  
   })
 
   it('stakeWithPermit', async () => {

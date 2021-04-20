@@ -128,7 +128,7 @@ describe('scenario:FeeTo', () => {
       await tokens[0].transfer(pairAAB.address, expandTo18Decimals(1))
       await tokens[1].transfer(pairAAB.address, expandTo18Decimals(1))
       await pairAAB.mint(wallet.address)
-/*
+
       // swap
       await tokens[0].transfer(pairAAB.address, expandTo18Decimals(1).div(10))
       const amount = expandTo18Decimals(1).div(20)
@@ -138,7 +138,7 @@ describe('scenario:FeeTo', () => {
       await tokens[0].transfer(pairAAB.address, expandTo18Decimals(1))
       await tokens[1].transfer(pairAAB.address, expandTo18Decimals(1))
       await pairAAB.mint(wallet.address, { gasLimit: 9999999 })
-    */
+  
     })
 
     it('updateTokenAllowState', async () => {
@@ -204,33 +204,19 @@ describe('scenario:FeeTo', () => {
       await feeTo.renounce(pairAAB.address, { gasLimit: 9999999 })
 
       // swap
-
-      let other0balance = await pairAAB.balanceOf(feeTo.address)
-      console.log("other0balanceAAAAAAAAA:", other0balance)
-
       await tokens[0].transfer(pairAAB.address, expandTo18Decimals(1).div(10000))
       const amount = expandTo18Decimals(1).div(12000)
       await pairAAB.swap(amount, wallet.address, '0x', { gasLimit: 9999999 })
-
-      other0balance = await pairAAB.balanceOf(feeTo.address)
-      console.log("other0balanceBBBBBBBBBBB:", other0balance)
 
       // mint again to collect the rewards
       await tokens[0].transfer(pairAAB.address, expandTo18Decimals(1))
       await tokens[1].transfer(pairAAB.address, expandTo18Decimals(1))
       await pairAAB.mint(wallet.address, { gasLimit: 9999999 })
 
-      other0balance = await pairAAB.balanceOf(feeTo.address)
-      console.log("other0balanceCCCCCCCCCCCCCCC:", other0balance)
-
       const balanceBefore = await pairAAB.balanceOf(other0.address)
       await feeTo.claim(pairAAB.address, { gasLimit: 9999999 })
       const balanceAfter = await pairAAB.balanceOf(other0.address)
       expect(balanceAfter.gt(balanceBefore)).to.be.true
-
-      console.log("balanceBefore:", balanceBefore)
-      console.log("balanceAfter:", balanceAfter)
-
     })
   })
 })

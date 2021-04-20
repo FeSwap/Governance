@@ -74,12 +74,14 @@ describe('FeswaNFT', () => {
   })
 
   it('BidFeswaPair: Basic checking', async () => {
-    await mineBlock(provider, BidStartTime)
+    await mineBlock(provider, BidStartTime - 1 )
     await expect(FeswaNFT.BidFeswaPair(TokenA.address, TokenB.address, other0.address))
       .to.be.revertedWith('FESN: BID NOT STARTED')
+
     await mineBlock(provider, BidStartTime + 1)
     await expect(FeswaNFT.BidFeswaPair(TokenA.address, TokenA.address, other0.address))
       .to.be.revertedWith('FESN: IDENTICAL_ADDRESSES')
+
     await expect(FeswaNFT.BidFeswaPair(TokenA.address, TokenB.address, other0.address,
           { ...overrides, value: initPoolPrice.sub(1) } ))
       .to.be.revertedWith('FESN: PAY LESS')
