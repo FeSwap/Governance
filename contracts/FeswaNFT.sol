@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "./utils/TransferHelper.sol";
 
     enum PoolRunningPhase {
+        BidToStart,
         BidPhase, 
         BidDelaying,
         BidSettled,
@@ -40,7 +41,8 @@ contract FeswaNFT is ERC721, Ownable {
     string public constant SYMBOL = 'FESN';
 
     // Price offering duration: two weeks 
-    uint256 public constant OPEN_BID_DURATION = (3600 * 24 * 14);
+    uint256 public constant OPEN_BID_DURATION = (3600 * 10);                    // For test
+//    uint256 public constant OPEN_BID_DURATION = (3600 * 24 * 14);
 
     // Price offering waiting duration: 2 Hours
     uint256 public constant CLOSE_BID_DELAY = (3600 * 2);           
@@ -56,6 +58,9 @@ contract FeswaNFT is ERC721, Ownable {
 
     // Minimum price increase for tender: 0.1ETH
     uint256 public constant MINIMUM_PRICE_INCREACE = 1e17;    
+
+    // Max price for NFT sale: 100,000,000ETH
+    uint256 public constant MAX_SALE_PRICE = 10_000_000e18; 
 
     // contract of Feswap DAO Token
     address public FeswapToken;       
@@ -137,6 +142,7 @@ contract FeswaNFT is ERC721, Ownable {
             pairInfo.tokenB = token1;
             pairInfo.currentPrice = msg.value;              //could be more than PriceLowLimit
             pairInfo.timeCreated = uint64(block.timestamp);
+            pairInfo.lastBidTime = uint64(block.timestamp);
             pairInfo.poolState = PoolRunningPhase.BidPhase;
 
             ListPools[tokenID] = pairInfo;
@@ -151,7 +157,7 @@ contract FeswaNFT is ERC721, Ownable {
      * @dev Settle the bid for the swap pair. 
      */
     function FeswaPairSettle(uint256 tokenID) external {
-        require(msg.sender == ownerOf(tokenID), 'FESN: NOT TOKEN OWNER');
+        require(msg.sender == ownerOf(tokenID), 'FESN: NOT TOKEN OWNER');       // ownerOf checked if tokenID existing
         
         FeswaPair storage pairInfo = ListPools[tokenID]; 
         if(pairInfo.poolState == PoolRunningPhase.BidPhase){
@@ -171,17 +177,19 @@ contract FeswaNFT is ERC721, Ownable {
      * @dev Sell the Pair with the specified Price. 
      */
     function FeswaPairForSale(uint256 tokenID, uint256 pairPrice) external returns (uint256 newPrice) {
-        require(msg.sender == ownerOf(tokenID), 'FESN: NOT TOKEN OWNER');
+        require(msg.sender == ownerOf(tokenID), 'FESN: NOT TOKEN OWNER');       // ownerOf checked if tokenID existing
         
         FeswaPair storage pairInfo = ListPools[tokenID]; 
         require(pairInfo.poolState >= PoolRunningPhase.BidSettled, 'FESN: BID NOT SETTLED'); 
 
         if(pairPrice != 0){
+            require(pairPrice <= MAX_SALE_PRICE, 'FESN: PRICE TOO HIGH'); 
             pairInfo.poolState = PoolRunningPhase.PoolForSale;
             pairInfo.currentPrice = pairPrice;
         } else{
+
             pairInfo.poolState = PoolRunningPhase.PoolHolding;
-            pairInfo.currentPrice = uint256(-1);
+//            pairInfo.currentPrice = uint256(-1);
         }
         
         return pairPrice;
@@ -203,11 +211,11 @@ contract FeswaNFT is ERC721, Ownable {
         _transfer(preOwner, to, tokenID);
 
         if(newPrice != 0){
+            require(newPrice <= MAX_SALE_PRICE, 'FESN: PRICE TOO HIGH'); 
             pairInfo.currentPrice = newPrice;
-
         } else{
             pairInfo.poolState = PoolRunningPhase.PoolHolding;
-            pairInfo.currentPrice = uint256(-1);
+//            pairInfo.currentPrice = uint256(-1);
         }
 
         // Send ETH to the owner                    
@@ -221,11 +229,14 @@ contract FeswaNFT is ERC721, Ownable {
     /**
      * @dev Return the token-pair information 
      */
-    function getPoolInfoByTokens(address tokenA, address tokenB) external view returns (uint256 tokenID, FeswaPair memory pairInfo) {
+    function getPoolInfoByTokens(address tokenA, address tokenB) external view returns (uint256 tokenID, address nftOwner, FeswaPair memory pairInfo) {
         (address token0, address token1) = (tokenA < tokenB) ? (tokenA, tokenB) : (tokenB, tokenA);
         tokenID = uint256(keccak256(abi.encodePacked(address(this), token0, token1)));
-        require(_exists(tokenID), 'FESN: TOKEN NOT CREATED');
-        pairInfo = ListPools[tokenID];
+//        require(_exists(tokenID), 'FESN: TOKEN NOT CREATED');
+        if(_exists(tokenID)){
+            nftOwner = ownerOf(tokenID);
+            pairInfo = ListPools[tokenID];
+        }
     }
 
     /**
@@ -233,7 +244,7 @@ contract FeswaNFT is ERC721, Ownable {
      */
     function getPoolTokens(uint256 tokenID) external view returns (address tokenA, address tokenB) {
         FeswaPair storage pairInfo = ListPools[tokenID];
-        require(pairInfo.tokenA != address(0), 'FESN: NOT TOKEN OWNER');
+//        require(pairInfo.tokenA != address(0), 'FESN: NOT TOKEN OWNER');
         return  (pairInfo.tokenA, pairInfo.tokenB);
     }
 
