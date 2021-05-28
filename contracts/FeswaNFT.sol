@@ -69,7 +69,7 @@ contract FeswaNFT is ERC721, Ownable {
     uint256 public PriceLowLimit;       
 
     // Sale start timestamp
-    uint256 public SaleStartTime;       // 1614556800  //2021/03/01 00:00
+    uint256 public SaleStartTime;                                   // 1614556800  //2021/03/01 00:00
 
     // Mapping from token ID to token pair infomation
     mapping (uint256 => FeswaPair) public ListPools;
@@ -186,10 +186,8 @@ contract FeswaNFT is ERC721, Ownable {
             require(pairPrice <= MAX_SALE_PRICE, 'FESN: PRICE TOO HIGH'); 
             pairInfo.poolState = PoolRunningPhase.PoolForSale;
             pairInfo.currentPrice = pairPrice;
-        } else{
-
+        } else {
             pairInfo.poolState = PoolRunningPhase.PoolHolding;
-//            pairInfo.currentPrice = uint256(-1);
         }
         
         return pairPrice;
@@ -213,9 +211,8 @@ contract FeswaNFT is ERC721, Ownable {
         if(newPrice != 0){
             require(newPrice <= MAX_SALE_PRICE, 'FESN: PRICE TOO HIGH'); 
             pairInfo.currentPrice = newPrice;
-        } else{
+        } else {
             pairInfo.poolState = PoolRunningPhase.PoolHolding;
-//            pairInfo.currentPrice = uint256(-1);
         }
 
         // Send ETH to the owner                    
@@ -232,7 +229,6 @@ contract FeswaNFT is ERC721, Ownable {
     function getPoolInfoByTokens(address tokenA, address tokenB) external view returns (uint256 tokenID, address nftOwner, FeswaPair memory pairInfo) {
         (address token0, address token1) = (tokenA < tokenB) ? (tokenA, tokenB) : (tokenB, tokenA);
         tokenID = uint256(keccak256(abi.encodePacked(address(this), token0, token1)));
-//        require(_exists(tokenID), 'FESN: TOKEN NOT CREATED');
         if(_exists(tokenID)){
             nftOwner = ownerOf(tokenID);
             pairInfo = ListPools[tokenID];
@@ -244,7 +240,6 @@ contract FeswaNFT is ERC721, Ownable {
      */
     function getPoolTokens(uint256 tokenID) external view returns (address tokenA, address tokenB) {
         FeswaPair storage pairInfo = ListPools[tokenID];
-//        require(pairInfo.tokenA != address(0), 'FESN: NOT TOKEN OWNER');
         return  (pairInfo.tokenA, pairInfo.tokenB);
     }
 
