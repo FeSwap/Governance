@@ -41,8 +41,8 @@ contract FeswaNFT is ERC721, Ownable {
     string public constant SYMBOL = 'FESN';
 
     // Price offering duration: two weeks 
-    uint256 public constant OPEN_BID_DURATION = (3600 * 10);                    // For test
-//    uint256 public constant OPEN_BID_DURATION = (3600 * 24 * 14);
+//    uint256 public constant OPEN_BID_DURATION = (3600 * 10);                    // For test
+    uint256 public constant OPEN_BID_DURATION = (3600 * 24 * 14);
 
     // Price offering waiting duration: 2 Hours
     uint256 public constant CLOSE_BID_DELAY = (3600 * 2);           
@@ -246,15 +246,22 @@ contract FeswaNFT is ERC721, Ownable {
     /**
      * @dev Set the initial pool price
      */
-    function setPriceLowLimit(uint256 priceLowLimit) onlyOwner public {
+    function setPriceLowLimit(uint256 priceLowLimit) public onlyOwner{
         PriceLowLimit = priceLowLimit;
     }
 
     /**
      * @dev Withdraw
      */
-    function withdraw(address to, uint256 value) onlyOwner public {
+    function withdraw(address to, uint256 value) public onlyOwner{
         require(address(this).balance >= value, 'FESN: INSUFFICIENT BALANCE');
         TransferHelper.safeTransferETH(to, value);
+    }
+
+    /**
+     * @dev @dev Set the prefix for the tokenURIs.
+     */
+    function setTokenURIPrefix(string memory prefix) public onlyOwner {
+        _setBaseURI(prefix);
     }
 }

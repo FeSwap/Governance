@@ -15,6 +15,7 @@ const overrides = {
 }
 
 enum PoolRunningPhase {
+  BidToStart,
   BidPhase, 
   BidDelaying,
   BidSettled,
@@ -726,7 +727,7 @@ describe('FeswaPairForSale', () => {
       expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
       expect(NewFeswaPair.timeCreated).to.deep.equal(createBlock.timestamp)
       expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.PoolHolding)
-      expect(NewFeswaPair.currentPrice).to.deep.equal(constants.MaxUint256)              
+      expect(NewFeswaPair.currentPrice).to.deep.equal(PoolSalePrice)    
     })
 
     it('FeswaPairBuyIn: Normal Buying with more value: Reimbursement', async () => {
@@ -745,7 +746,7 @@ describe('FeswaPairForSale', () => {
       expect(NewFeswaPair.tokenB).to.deep.equal(TokenB.address)
       expect(NewFeswaPair.timeCreated).to.deep.equal(createBlock.timestamp)
       expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.PoolHolding)
-      expect(NewFeswaPair.currentPrice).to.deep.equal(constants.MaxUint256)     
+      expect(NewFeswaPair.currentPrice).to.deep.equal(PoolSalePrice)     
       
       // Check the Bit Contract balance: no change       
       expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance)
@@ -791,9 +792,12 @@ describe('FeswaPairForSale', () => {
                                                           [FeswaNFT.address, TokenA.address, TokenB.address] ) )
     })
   
-    it('getPoolInfoByTokens: Pair not created', async () => {
-      await expect(FeswaNFT.getPoolInfoByTokens(TokenA.address, Feswa.address)) 
-              .to.be.revertedWith('FESN: TOKEN NOT CREATED') 
+    it('getPoolInfoByTokens: Pair not created, still return NFT info, but with Null value', async () => {
+      const poolInfo = await FeswaNFT.getPoolInfoByTokens(TokenA.address, Feswa.address)
+      expect(poolInfo.nftOwner).to.deep.equal(constants.AddressZero)
+      expect(poolInfo.pairInfo.tokenA).to.deep.equal(constants.AddressZero)
+      expect(poolInfo.pairInfo.tokenB).to.deep.equal(constants.AddressZero)
+//       .to.be.revertedWith('FESN: TOKEN NOT CREATED')       // For UX reason , do not revert
     })
 
     it('getPoolInfoByTokens: Check TokenInfo', async () => {
@@ -811,7 +815,10 @@ describe('FeswaPairForSale', () => {
     })
 
     it('getPoolTokens: Token ID not existed', async () => {
-      await expect(FeswaNFT.getPoolTokens('0xFFFFFFFFFFF')).to.be.revertedWith('FESN: NOT TOKEN OWNER')  
+//      await expect(FeswaNFT.getPoolTokens('0xFFFFFFFFFFF')).to.be.revertedWith('FESN: NOT TOKEN OWNER')  
+      const poolInfo = await FeswaNFT.getPoolTokens('0xFFFFFFFFFFF')
+      expect(poolInfo.tokenA).to.deep.equal(constants.AddressZero)
+      expect(poolInfo.tokenB).to.deep.equal(constants.AddressZero)
     })
 
     it('getPoolTokens: Normal', async () => {
