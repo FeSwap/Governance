@@ -816,13 +816,18 @@ describe('FeswaPairForSale', () => {
 
     it('getPoolTokens: Token ID not existed', async () => {
 //      await expect(FeswaNFT.getPoolTokens('0xFFFFFFFFFFF')).to.be.revertedWith('FESN: NOT TOKEN OWNER')  
-      const poolInfo = await FeswaNFT.getPoolTokens('0xFFFFFFFFFFF')
-      expect(poolInfo.tokenA).to.deep.equal(constants.AddressZero)
-      expect(poolInfo.tokenB).to.deep.equal(constants.AddressZero)
+      const poolInfo = await FeswaNFT.getPoolInfo('0xFFFFFFFFFFF')
+      expect(poolInfo.nftOwner).to.deep.equal(constants.AddressZero)
+      expect(poolInfo.pairInfo.tokenA).to.deep.equal(constants.AddressZero)
+      expect(poolInfo.pairInfo.tokenB).to.deep.equal(constants.AddressZero)
     })
 
     it('getPoolTokens: Normal', async () => {
-      expect(await FeswaNFT.getPoolTokens(tokenIDMatch)).to.deep.eq([TokenA.address, TokenB.address])  
+//      expect(await FeswaNFT.getPoolInfo(tokenIDMatch)).to.deep.eq([TokenA.address, TokenB.address])  
+      const poolInfo = await FeswaNFT.getPoolInfo(tokenIDMatch)
+      expect(poolInfo.nftOwner).to.deep.equal(wallet.address)
+      expect(poolInfo.pairInfo.tokenA).to.deep.equal(TokenA.address)
+      expect(poolInfo.pairInfo.tokenB).to.deep.equal(TokenB.address)
     })
   })
 

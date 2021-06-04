@@ -229,18 +229,17 @@ contract FeswaNFT is ERC721, Ownable {
     function getPoolInfoByTokens(address tokenA, address tokenB) external view returns (uint256 tokenID, address nftOwner, FeswaPair memory pairInfo) {
         (address token0, address token1) = (tokenA < tokenB) ? (tokenA, tokenB) : (tokenB, tokenA);
         tokenID = uint256(keccak256(abi.encodePacked(address(this), token0, token1)));
-        if(_exists(tokenID)){
-            nftOwner = ownerOf(tokenID);
-            pairInfo = ListPools[tokenID];
-        }
+        (nftOwner, pairInfo) = getPoolInfo(tokenID);
     }
 
     /**
      * @dev Return the token pair addresses by TokenID 
      */
-    function getPoolTokens(uint256 tokenID) external view returns (address tokenA, address tokenB) {
-        FeswaPair storage pairInfo = ListPools[tokenID];
-        return  (pairInfo.tokenA, pairInfo.tokenB);
+    function getPoolInfo(uint256 tokenID) public view returns (address nftOwner, FeswaPair memory pairInfo) {
+        if(_exists(tokenID)){
+            nftOwner = ownerOf(tokenID);
+            pairInfo = ListPools[tokenID];
+        }
     }
 
     /**
