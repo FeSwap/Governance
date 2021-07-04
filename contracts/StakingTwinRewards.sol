@@ -8,8 +8,11 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 // Inheritance
 import "./interfaces/IStakingTwinRewards.sol";
-import "./RewardsDistributionRecipient.sol";
+import "./RewardsTwinDistributionRecipient.sol";
 
+contract StakingTwinRewards is IStakingTwinRewards, RewardsTwinDistributionRecipient, ReentrancyGuard {
+    using SafeMath  for uint256;
+    using SafeERC20 for IERC20;
     struct AmountWithSignature {
         uint256     amount;
         uint        deadline;
@@ -18,10 +21,6 @@ import "./RewardsDistributionRecipient.sol";
         bytes32     s;
     }
 
-contract StakingTwinRewards is IStakingTwinRewards, RewardsDistributionRecipient, ReentrancyGuard {
-    using SafeMath  for uint256;
-    using SafeERC20 for IERC20;
-
     /* ========== STATE VARIABLES ========== */
 
     IERC20  public rewardsToken;
@@ -29,7 +28,7 @@ contract StakingTwinRewards is IStakingTwinRewards, RewardsDistributionRecipient
     IERC20  public stakingTokenB;
     uint256 public periodFinish = 0;
     uint256 public rewardRate = 0;
-    uint256 public rewardsDuration = 60 days;
+    uint256 public rewardsDuration = 0 days;
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
 
@@ -50,6 +49,7 @@ contract StakingTwinRewards is IStakingTwinRewards, RewardsDistributionRecipient
         address _stakingTokenA,
         address _stakingTokenB
     ) {
+        require(_stakingTokenA < _stakingTokenB, "Wrong token order");
         rewardsToken = IERC20(_rewardsToken);
         stakingTokenA = IERC20(_stakingTokenA);
         stakingTokenB = IERC20(_stakingTokenB);
@@ -71,17 +71,18 @@ contract StakingTwinRewards is IStakingTwinRewards, RewardsDistributionRecipient
     }
 
     function rewardPerToken() public override view returns (uint256) {
-        if ( (_totalSupplyA + _totalSupplyB) == 0) {
+        uint256 _totalSupply = _totalSupplyA.add(_totalSupplyB);
+        if(_totalSupply == 0) {
             return rewardPerTokenStored;
         }
         return
             rewardPerTokenStored.add(
-                lastTimeRewardApplicable().sub(lastUpdateTime).mul(rewardRate).mul(1e18).div(_totalSupplyA + _totalSupplyB)
+                lastTimeRewardApplicable().sub(lastUpdateTime).mul(rewardRate).mul(1e18).div(_totalSupply)
             );
     }
 
     function earned(address account) public override view returns (uint256) {
-        return (_balancesA[account]+_balancesB[account]).mul(rewardPerToken().sub(userRewardPerTokenPaid[account])).div(1e18).add(rewards[account]);
+        return (_balancesA[account].add(_balancesB[account])).mul(rewardPerToken().sub(userRewardPerTokenPaid[account])).div(1e18).add(rewards[account]);
     }
 
     function getRewardForDuration() external override view returns (uint256) {
@@ -91,7 +92,7 @@ contract StakingTwinRewards is IStakingTwinRewards, RewardsDistributionRecipient
     /* ========== MUTATIVE FUNCTIONS ========== */
 
     function stakeWithPermit(AmountWithSignature calldata amountA, AmountWithSignature calldata amountB) external nonReentrant updateReward(msg.sender) {
-        require( (amountA.amount > 0) || ((amountB.amount > 0) ), "Cannot stake 0");
+        require( (amountA.amount > 0) || (amountB.amount > 0), "Cannot stake 0");
         if(amountA.amount > 0) {
             _totalSupplyA = _totalSupplyA.add(amountA.amount);
             _balancesA[msg.sender] = _balancesA[msg.sender].add(amountA.amount);
@@ -159,13 +160,15 @@ contract StakingTwinRewards is IStakingTwinRewards, RewardsDistributionRecipient
 
     /* ========== RESTRICTED FUNCTIONS ========== */
 
-    function notifyRewardAmount(uint256 reward) external override onlyRewardsDistribution updateReward(address(0)) {
+    function notifyRewardAmount(uint256 reward, uint256 _rewardsDuration) external override onlyRewardsDistribution updateReward(address(0)) {
+        require(_rewardsDuration > 0 , "Wrong duration");
+
         if (block.timestamp >= periodFinish) {
-            rewardRate = reward.div(rewardsDuration);
+            rewardRate = reward.div(_rewardsDuration);
         } else {
             uint256 remaining = periodFinish.sub(block.timestamp);
             uint256 leftover = remaining.mul(rewardRate);
-            rewardRate = reward.add(leftover).div(rewardsDuration);
+            rewardRate = reward.add(leftover).div(_rewardsDuration);
         }
 
         // Ensure the provided reward amount is not more than the balance in the contract.
@@ -173,11 +176,12 @@ contract StakingTwinRewards is IStakingTwinRewards, RewardsDistributionRecipient
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint balance = rewardsToken.balanceOf(address(this));
-        require(rewardRate <= balance.div(rewardsDuration), "Provided reward too high");
+        require(rewardRate <= balance.div(_rewardsDuration), "Provided reward too high");
 
         lastUpdateTime = block.timestamp;
-        periodFinish = block.timestamp.add(rewardsDuration);
-        emit RewardAdded(reward);
+        periodFinish = block.timestamp.add(_rewardsDuration);
+        rewardsDuration = _rewardsDuration;
+        emit RewardAdded(reward, _rewardsDuration);
     }
 
     /* ========== MODIFIERS ========== */
@@ -194,7 +198,7 @@ contract StakingTwinRewards is IStakingTwinRewards, RewardsDistributionRecipient
 
     /* ========== EVENTS ========== */
 
-    event RewardAdded(uint256 reward);
+    event RewardAdded(uint256 reward, uint256 _rewardsDuration);
     event Staked(address indexed user, uint256 amountA, uint256 amountB);
     event Withdrawn(address indexed user, uint256 amountA, uint256 amountB);
     event RewardPaid(address indexed user, uint256 reward);

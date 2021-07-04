@@ -948,7 +948,7 @@ describe('FeswaPairForSale', () => {
       TokenB = fixture.TokenB    
       FeswaNFT = fixture.FeswaNFT
 
-      const TokenC = await deployContract(wallet, TestERC20, ['Test ERC20 B', 'TKB', expandTo18Decimals(1000_000)])
+      const TokenC = await deployContract(wallet, TestERC20, ['Test ERC20 B', 'TKB', 18, expandTo18Decimals(1000_000)])
   
       // Normal NFT creation
       await mineBlock(provider, BidStartTime + 1)
