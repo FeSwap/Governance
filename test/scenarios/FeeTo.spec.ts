@@ -119,12 +119,8 @@ describe('scenario:FeeTo', () => {
       await mineBlock(provider, vestingEnd + 10)
       await feeToSetter.toggleFees(true)
 
-      console.log("AAAAAAAAAAAAAAAAA")
-
       // create the pair
       await router.connect(other1).ManageFeswaPair(tokenIDMatch, other1.address, rateTriggerArbitrage)
-
-      console.log("BBBBBBBBBBBBBBBBBBBBBBB")
 
       const pairAddressAAB = await factory.getPair(tokens[0].address, tokens[1].address)
       pairAAB = new Contract(pairAddressAAB, FeSwapPair.abi).connect(wallet)

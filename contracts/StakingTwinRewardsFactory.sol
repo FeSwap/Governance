@@ -4,6 +4,11 @@ pragma solidity ^0.7.0;
 import '@openzeppelin/contracts/access/Ownable.sol';
 import "./StakingTwinRewards.sol";
 
+interface IFeSwapPair {
+    function tokenIn() external view returns (address);
+    function tokenOut() external view returns (address);
+}
+
 contract StakingTwinRewardsFactory is Ownable {
     // immutables
     address public rewardsToken;
@@ -41,6 +46,9 @@ contract StakingTwinRewardsFactory is Ownable {
         require(stakingTokenA < stakingTokenB, "Wrong token order");
         StakingRewardsInfo storage info = stakingRewardsInfoByStakingToken[stakingTokenA];
         if(info.stakingRewards == address(0)) {
+            require(IFeSwapPair(stakingTokenA).tokenIn() == IFeSwapPair(stakingTokenB).tokenOut(), "Wrong pair token");
+            require(IFeSwapPair(stakingTokenA).tokenOut() == IFeSwapPair(stakingTokenB).tokenIn(), "Wrong pair token");
+
             info.stakingRewards = address(new StakingTwinRewards(/*_rewardsDistribution=*/ address(this), 
                                                                 rewardsToken, stakingTokenA, stakingTokenB));
             info.stakingTwinToken = stakingTokenB;
