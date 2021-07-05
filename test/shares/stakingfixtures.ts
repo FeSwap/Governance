@@ -29,7 +29,7 @@ interface StakingRewardsFixture {
 
 export async function stakingRewardsFixture([wallet]: Wallet[]): Promise<StakingRewardsFixture> {
   const rewardsDistribution = wallet.address
-  const rewardsToken = await deployContract(wallet, TestERC20, ['Test ERC20', 'TEST', expandTo18Decimals(1000000)])
+  const rewardsToken = await deployContract(wallet, TestERC20, ['Test ERC20', 'TEST', 18, expandTo18Decimals(1000000)])
   const stakingToken = await deployContract(wallet, FeswapTestERC20, [expandTo18Decimals(1000000),'StakeToken'])
 
   const stakingRewards = await deployContract(wallet, StakingRewards, [
@@ -53,12 +53,12 @@ export async function stakingRewardsFactoryFixture(
   [wallet]: Wallet[],
   provider: providers.Web3Provider
 ): Promise<StakingRewardsFactoryFixture> {
-  const rewardsToken = await deployContract(wallet, TestERC20, ['Test ERC20', 'TEST', expandTo18Decimals(1_000_000_000)])
+  const rewardsToken = await deployContract(wallet, TestERC20, ['Test ERC20', 'TEST', 18, expandTo18Decimals(1_000_000_000)])
 
   // deploy staking tokens
   const stakingTokens = []
   for (let i = 0; i < NUMBER_OF_STAKING_TOKENS; i++) {
-    const stakingToken = await deployContract(wallet, TestERC20, ['Test ERC20', 'TEST', expandTo18Decimals(1_000_000_000)])
+    const stakingToken = await deployContract(wallet, TestERC20, ['Test ERC20', 'TEST', 18, expandTo18Decimals(1_000_000_000)])
     stakingTokens.push(stakingToken)
   }
 

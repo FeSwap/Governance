@@ -2,9 +2,14 @@
 pragma solidity ^0.7.0;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
-import "./StakingRewards.sol";
+import "./StakingTwinRewards.sol";
 
-contract StakingRewardsFactory is Ownable {
+interface IFeSwapPair {
+    function tokenIn() external view returns (address);
+    function tokenOut() external view returns (address);
+}
+
+contract StakingTwinRewardsFactory is Ownable {
     // immutables
     address public rewardsToken;
     uint    public stakingRewardsGenesis;
@@ -14,8 +19,10 @@ contract StakingRewardsFactory is Ownable {
 
     // info about rewards for a particular staking token
     struct StakingRewardsInfo {
+        address stakingTwinToken;
         address stakingRewards;
-        uint rewardAmount;
+        uint    rewardAmount;
+        uint    rewardsDuration;
     }
 
     // rewards info by staking token
@@ -35,16 +42,24 @@ contract StakingRewardsFactory is Ownable {
 
     // deploy a staking reward contract for the staking token, and store the reward amount
     // the reward will be distributed to the staking reward contract no sooner than the genesis
-    function deploy(address stakingToken, uint rewardAmount) public onlyOwner {
-        StakingRewardsInfo storage info = stakingRewardsInfoByStakingToken[stakingToken];
-//        require(info.stakingRewards == address(0), 'StakingRewardsFactory::deploy: already deployed');
+    function deploy(address stakingTokenA, address stakingTokenB, uint rewardAmount, uint rewardsDuration) public onlyOwner {
+        require(stakingTokenA < stakingTokenB, "Wrong token order");
+        StakingRewardsInfo storage info = stakingRewardsInfoByStakingToken[stakingTokenA];
         if(info.stakingRewards == address(0)) {
-            info.stakingRewards = address(new StakingRewards(/*_rewardsDistribution=*/ address(this), rewardsToken, stakingToken));
+            require(IFeSwapPair(stakingTokenA).tokenIn() == IFeSwapPair(stakingTokenB).tokenOut(), "Wrong pair token");
+            require(IFeSwapPair(stakingTokenA).tokenOut() == IFeSwapPair(stakingTokenB).tokenIn(), "Wrong pair token");
+
+            info.stakingRewards = address(new StakingTwinRewards(/*_rewardsDistribution=*/ address(this), 
+                                                                rewardsToken, stakingTokenA, stakingTokenB));
+            info.stakingTwinToken = stakingTokenB;
             info.rewardAmount = rewardAmount;
-            stakingTokens.push(stakingToken);
+            info.rewardsDuration = rewardsDuration;
+            stakingTokens.push(stakingTokenA);
         } else {
             require(info.rewardAmount == 0, 'StakingRewardsFactory::deploy: already deployed');
-            info.rewardAmount = rewardAmount;       // refill the reward contract
+            require(stakingTokenB == info.stakingTwinToken, "Wrong twin token");
+            info.rewardAmount = rewardAmount;                   // refill the reward contract
+            info.rewardsDuration = rewardsDuration;
         }
 
     }
@@ -75,7 +90,7 @@ contract StakingRewardsFactory is Ownable {
                 IERC20(rewardsToken).transfer(info.stakingRewards, rewardAmount),
                 'StakingRewardsFactory::notifyRewardAmount: transfer failed'
             );
-            StakingRewards(info.stakingRewards).notifyRewardAmount(rewardAmount);
+            StakingTwinRewards(info.stakingRewards).notifyRewardAmount(rewardAmount, info.rewardsDuration);
         }
     }
 }

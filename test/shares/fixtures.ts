@@ -99,8 +99,8 @@ export async function FeswaNFTFixture(
   // deploy FeSwap NFT contract
   const FeswaNFT = await deployContract(wallet, FeswaNFTCode, [Feswa.address, initPoolPrice, BidStartTime])
 
-  const Token0 = await deployContract(wallet, TestERC20, ['Test ERC20 A', 'TKA', expandTo18Decimals(1000_000)])
-  const Token1 = await deployContract(wallet, TestERC20, ['Test ERC20 B', 'TKB', expandTo18Decimals(1000_000)])
+  const Token0 = await deployContract(wallet, TestERC20, ['Test ERC20 A', 'TKA', 18, expandTo18Decimals(1000_000)])
+  const Token1 = await deployContract(wallet, TestERC20, ['Test ERC20 B', 'TKB', 18, expandTo18Decimals(1000_000)])
 
   await Feswa.transfer(FeswaNFT.address, expandTo18Decimals(1000_000))
 

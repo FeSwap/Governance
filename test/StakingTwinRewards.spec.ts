@@ -3,14 +3,14 @@ import { Contract, BigNumber, constants } from 'ethers'
 import { solidity, MockProvider, createFixtureLoader, deployContract } from 'ethereum-waffle'
 import { ecsign } from 'ethereumjs-util'
 
-import { stakingRewardsFixture } from './shares/stakingfixtures'
+import { stakingTwinRewardsFixture } from './shares/stakingTwinfixtures'
 import { REWARDS_DURATION, expandTo18Decimals, mineBlock, getApprovalDigest } from './shares/utils'
 
-import StakingRewards from '../build/StakingRewards.json'
+import StakingTwinRewards from '../build/StakingTwinRewards.json'
 
 chai.use(solidity)
 
-describe('StakingRewards', () => {
+describe('StakingTwinRewards', () => {
   const provider = new MockProvider({
     ganacheOptions: {
       hardfork: 'istanbul',
@@ -23,27 +23,30 @@ describe('StakingRewards', () => {
 
   let stakingRewards: Contract
   let rewardsToken: Contract
-  let stakingToken: Contract
+  let stakingTokenA: Contract
+  let stakingTokenB: Contract
   beforeEach(async () => {
-    const fixture = await loadFixture(stakingRewardsFixture)
-    stakingRewards = fixture.stakingRewards
+    const fixture = await loadFixture(stakingTwinRewardsFixture)
+    stakingRewards = fixture.stakingTwinRewards
     rewardsToken = fixture.rewardsToken
-    stakingToken = fixture.stakingToken
+    stakingTokenA = fixture.stakingTokenA
+    stakingTokenB = fixture.stakingTokenB    
   })
 
   it('deploy cost', async () => {
-    const stakingRewards = await deployContract(wallet, StakingRewards, [
+    const stakingRewards = await deployContract(wallet, StakingTwinRewards, [
       wallet.address,
       rewardsToken.address,
-      stakingToken.address,
+      stakingTokenA.address,
+      stakingTokenB.address,
     ])
     const receipt = await provider.getTransactionReceipt(stakingRewards.deployTransaction.hash)
-    expect(receipt.gasUsed).to.eq('1467786')          // 1467774
+    expect(receipt.gasUsed).to.eq('1648727')          // 1467786
   })
 
   it('rewardsDuration', async () => {
     const rewardsDuration = await stakingRewards.rewardsDuration()
-    expect(rewardsDuration).to.be.eq(REWARDS_DURATION)
+    expect(rewardsDuration).to.be.eq(0)
   })
 
   const reward = expandTo18Decimals(100)
@@ -51,7 +54,7 @@ describe('StakingRewards', () => {
     // send reward to the contract
     await rewardsToken.transfer(stakingRewards.address, reward)
     // must be called by rewardsDistribution
-    await stakingRewards.notifyRewardAmount(reward)
+    await stakingRewards.notifyRewardAmount(reward,REWARDS_DURATION)
 
     const startTime: BigNumber = await stakingRewards.lastUpdateTime()
     const endTime: BigNumber = await stakingRewards.periodFinish()
@@ -61,13 +64,16 @@ describe('StakingRewards', () => {
 
   it('notifyRewardAmount: full', async () => {
     // stake with staker
-    const stake = expandTo18Decimals(2)
-    await stakingToken.transfer(staker.address, stake)
-    await stakingToken.connect(staker).approve(stakingRewards.address, stake)
-    await stakingRewards.connect(staker).stake(stake)
+    const stakeA = expandTo18Decimals(2)
+    await stakingTokenA.transfer(staker.address, stakeA)
+    await stakingTokenA.connect(staker).approve(stakingRewards.address, stakeA)
+    const stakeB = expandTo18Decimals(2)
+    await stakingTokenB.transfer(staker.address, stakeB)
+    await stakingTokenB.connect(staker).approve(stakingRewards.address, stakeB)
 
+    await stakingRewards.connect(staker).stake(stakeA, stakeB)
     const { endTime } = await start(reward)
-
+    
     // fast-forward past the reward window
     await mineBlock(provider, endTime.add(1).toNumber())
 
@@ -84,21 +90,37 @@ describe('StakingRewards', () => {
 
   it('stakeWithPermit', async () => {
     // stake with staker
-    const stake = expandTo18Decimals(2)
-    await stakingToken.transfer(staker.address, stake)
+    const stakeA = expandTo18Decimals(2)
+    await stakingTokenA.transfer(staker.address, stakeA)
 
     // get permit
-    const nonce = await stakingToken.nonces(staker.address)
-    const deadline = constants.MaxUint256
-    const digest = await getApprovalDigest(
-      stakingToken,
-      { owner: staker.address, spender: stakingRewards.address, value: stake },
-      nonce,
-      deadline
+    const nonce0 = await stakingTokenA.nonces(staker.address)
+    const deadline0 = constants.MaxUint256
+    const digest0 = await getApprovalDigest(
+      stakingTokenA,
+      { owner: staker.address, spender: stakingRewards.address, value: stakeA },
+      nonce0,
+      deadline0
     )
-    const { v, r, s } = ecsign(Buffer.from(digest.slice(2), 'hex'), Buffer.from(staker.privateKey.slice(2), 'hex'))
+    const { v:v0, r:r0, s:s0 } = ecsign(Buffer.from(digest0.slice(2), 'hex'), Buffer.from(staker.privateKey.slice(2), 'hex'))
 
-    await stakingRewards.connect(staker).stakeWithPermit(stake, deadline, v, r, s)
+
+    const stakeB = expandTo18Decimals(2)
+    await stakingTokenB.transfer(staker.address, stakeB)
+
+    // get permit
+    const nonce1 = await stakingTokenB.nonces(staker.address)
+    const deadline1 = constants.MaxUint256
+    const digest1 = await getApprovalDigest(
+      stakingTokenB,
+      { owner: staker.address, spender: stakingRewards.address, value: stakeB },
+      nonce1,
+      deadline1
+    )
+    const { v:v1, r:r1, s:s1} = ecsign(Buffer.from(digest1.slice(2), 'hex'), Buffer.from(staker.privateKey.slice(2), 'hex'))
+
+
+    await stakingRewards.connect(staker).stakeWithPermit([stakeA, deadline0, v0, r0, s0], [stakeB, deadline1, v1, r1, s1])
 
     const { endTime } = await start(reward)
 
@@ -123,9 +145,9 @@ describe('StakingRewards', () => {
 
     // stake with staker
     const stake = expandTo18Decimals(2)
-    await stakingToken.transfer(staker.address, stake)
-    await stakingToken.connect(staker).approve(stakingRewards.address, stake)
-    await stakingRewards.connect(staker).stake(stake)
+    await stakingTokenA.transfer(staker.address, stake)
+    await stakingTokenA.connect(staker).approve(stakingRewards.address, stake)
+    await stakingRewards.connect(staker).stake(stake,0)
     const stakeStartTime: BigNumber = await stakingRewards.lastUpdateTime()
 
     // fast-forward past the reward window
@@ -144,9 +166,9 @@ describe('StakingRewards', () => {
   it('notifyRewardAmount: two stakers', async () => {
     // stake with first staker
     const stake = expandTo18Decimals(2)
-    await stakingToken.transfer(staker.address, stake)
-    await stakingToken.connect(staker).approve(stakingRewards.address, stake)
-    await stakingRewards.connect(staker).stake(stake)
+    await stakingTokenA.transfer(staker.address, stake)
+    await stakingTokenA.connect(staker).approve(stakingRewards.address, stake)
+    await stakingRewards.connect(staker).stake(stake,0)
 
     const { startTime, endTime } = await start(reward)
 
@@ -154,9 +176,9 @@ describe('StakingRewards', () => {
     await mineBlock(provider, startTime.add(endTime.sub(startTime).div(2)).toNumber())
 
     // stake with second staker
-    await stakingToken.transfer(secondStaker.address, stake)
-    await stakingToken.connect(secondStaker).approve(stakingRewards.address, stake)
-    await stakingRewards.connect(secondStaker).stake(stake)
+    await stakingTokenB.transfer(secondStaker.address, stake)
+    await stakingTokenB.connect(secondStaker).approve(stakingRewards.address, stake)
+    await stakingRewards.connect(secondStaker).stake(0,stake)
 
     // fast-forward past the reward window
     await mineBlock(provider, endTime.add(1).toNumber())
