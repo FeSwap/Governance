@@ -7,7 +7,7 @@ import { DELAY } from './shares/utils'
 
 chai.use(solidity)
 
-describe('GovernorAlpha', () => {
+describe('FeswGovernor', () => {
   const provider = new MockProvider({
     ganacheOptions: {
       hardfork: 'istanbul',
@@ -20,12 +20,12 @@ describe('GovernorAlpha', () => {
 
   let Feswa: Contract
   let timelock: Contract
-  let governorAlpha: Contract
+  let feswGovernor: Contract
   beforeEach(async () => {
     const fixture = await loadFixture(governanceFixture)
     Feswa = fixture.Feswa
     timelock = fixture.timelock
-    governorAlpha = fixture.governorAlpha
+    feswGovernor = fixture.feswGovernor
   })
 
   it('Feswa', async () => {
@@ -36,7 +36,7 @@ describe('GovernorAlpha', () => {
 
   it('timelock', async () => {
     const admin = await timelock.admin()
-    expect(admin).to.be.eq(governorAlpha.address)
+    expect(admin).to.be.eq(feswGovernor.address)
     const pendingAdmin = await timelock.pendingAdmin()
     expect(pendingAdmin).to.be.eq(constants.AddressZero)
     const delay = await timelock.delay()
@@ -44,11 +44,11 @@ describe('GovernorAlpha', () => {
   })
 
   it('governor', async () => {
-    const votingPeriod = await governorAlpha.votingPeriod()
+    const votingPeriod = await feswGovernor.votingPeriod()
     expect(votingPeriod).to.be.eq(604800)
-    const timelockAddress = await governorAlpha.timelock()
+    const timelockAddress = await feswGovernor.timelock()
     expect(timelockAddress).to.be.eq(timelock.address)
-    const FeswaFromGovernor = await governorAlpha.Feswa()
+    const FeswaFromGovernor = await feswGovernor.Feswa()
     expect(FeswaFromGovernor).to.be.eq(Feswa.address)
   })
 })

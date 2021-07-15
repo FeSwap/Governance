@@ -36,7 +36,7 @@ describe('castVote', () => {
 
   let Feswa: Contract
   let timelock: Contract
-  let governorAlpha: Contract
+  let feswGovernor: Contract
   let proposalId: BigNumber
   let lastBlock: Block
 
@@ -49,12 +49,12 @@ describe('castVote', () => {
     const fixture = await loadFixture(governanceFixture)
     Feswa = fixture.Feswa
     timelock = fixture.timelock
-    governorAlpha = fixture.governorAlpha
+    feswGovernor = fixture.feswGovernor
 
     await enfranchise(other0, 50)
     await Feswa.delegate(wallet.address);
-    await governorAlpha.propose(targets, values, signatures, callDatas, "do nothing");
-    proposalId = await governorAlpha.latestProposalIds(wallet.address);
+    await feswGovernor.propose(targets, values, signatures, callDatas, "do nothing");
+    proposalId = await feswGovernor.latestProposalIds(wallet.address);
     lastBlock = await provider.getBlock('latest')
   })
 
@@ -66,7 +66,7 @@ describe('castVote', () => {
   it("Voting block number should be between the proposal's start block (exclusive) and end block (inclusive)", async () => {
     let timestamp = lastBlock.timestamp
     await mineBlock(provider, timestamp-1)
-    await expect(governorAlpha.castVote(proposalId, true)).to.be.revertedWith('GovernorAlpha::_castVote: voting is closed')
+    await expect(feswGovernor.castVote(proposalId, true)).to.be.revertedWith('FeswGovernor::_castVote: voting is closed')
   })
 
   it("Such proposal already has an entry in its voters set matching the sender", async () => {
@@ -74,11 +74,11 @@ describe('castVote', () => {
     await mineBlock(provider, timestamp + 10)
     await mineBlock(provider, timestamp + 20)
 
-    await governorAlpha.connect(other0).castVote(proposalId, true);
+    await feswGovernor.connect(other0).castVote(proposalId, true);
 
     //cannot vote twice
-    await expect(governorAlpha.connect(other0).castVote(proposalId, true))
-          .to.be.revertedWith('GovernorAlpha::_castVote: voter already voted')
+    await expect(feswGovernor.connect(other0).castVote(proposalId, true))
+          .to.be.revertedWith('FeswGovernor::_castVote: voter already voted')
   });
 
   it("we add the sender to the proposal's voters set", async () => {
@@ -86,12 +86,12 @@ describe('castVote', () => {
     let timestamp = lastBlock.timestamp
     await mineBlock(provider, timestamp + 10)
 
-    let receipt = await governorAlpha.getReceipt(proposalId, other0.address)
+    let receipt = await feswGovernor.getReceipt(proposalId, other0.address)
     expect(receipt.hasVoted).to.be.equal(false)
 
-    await governorAlpha.connect(other0).castVote(proposalId, true);
+    await feswGovernor.connect(other0).castVote(proposalId, true);
 
-    receipt = await governorAlpha.getReceipt(proposalId, other0.address)
+    receipt = await feswGovernor.getReceipt(proposalId, other0.address)
     expect(receipt.hasVoted).to.be.equal(true)
     expect(receipt.support).to.be.equal(true)
     expect(receipt.votes).to.be.equal(expandTo18Decimals(50))
@@ -102,17 +102,17 @@ describe('castVote', () => {
     it("Check ForVotes balance", async () => {
 
       await enfranchise(other1, 40_000_001)
-      await governorAlpha.connect(other1).propose(targets, values, signatures, callDatas, "do nothing");
-      proposalId = await governorAlpha.latestProposalIds(other1.address);
+      await feswGovernor.connect(other1).propose(targets, values, signatures, callDatas, "do nothing");
+      proposalId = await feswGovernor.latestProposalIds(other1.address);
       lastBlock = await provider.getBlock('latest')
 
-      let beforeFors = await governorAlpha.proposals(proposalId)
+      let beforeFors = await feswGovernor.proposals(proposalId)
 
       lastBlock = await provider.getBlock('latest')
       await mineBlock(provider, lastBlock.timestamp + 10)
 
-      await governorAlpha.connect(other1).castVote(proposalId, true);
-      let afterFors = await governorAlpha.proposals(proposalId)
+      await feswGovernor.connect(other1).castVote(proposalId, true);
+      let afterFors = await feswGovernor.proposals(proposalId)
 
       expect(afterFors.forVotes).to.be.equal(beforeFors.forVotes.add(expandTo18Decimals(40_000_001)))
 
@@ -121,18 +121,18 @@ describe('castVote', () => {
     it("Check AgainstVotes balance", async () => {
 
       await enfranchise(other1, 40_000_001)
-      await governorAlpha.connect(other1).propose(targets, values, signatures, callDatas, "do nothing");
-      proposalId = await governorAlpha.latestProposalIds(other1.address);
+      await feswGovernor.connect(other1).propose(targets, values, signatures, callDatas, "do nothing");
+      proposalId = await feswGovernor.latestProposalIds(other1.address);
       lastBlock = await provider.getBlock('latest')
 
-      let beforeFors = await governorAlpha.proposals(proposalId)
+      let beforeFors = await feswGovernor.proposals(proposalId)
 
       lastBlock = await provider.getBlock('latest')
       await mineBlock(provider, lastBlock.timestamp + 10)
 
-      await governorAlpha.connect(other1).castVote(proposalId, false);
+      await feswGovernor.connect(other1).castVote(proposalId, false);
 
-      let afterFors = await governorAlpha.proposals(proposalId)
+      let afterFors = await feswGovernor.proposals(proposalId)
       expect(afterFors.againstVotes).to.be.equal(beforeFors.againstVotes.add(expandTo18Decimals(40_000_001)))
 
     });
@@ -143,20 +143,20 @@ describe('castVote', () => {
     it('reverts if the signatory is invalid', async () => {
       lastBlock = await provider.getBlock('latest')
       await mineBlock(provider, lastBlock.timestamp + 10)
-      await expect(governorAlpha.castVoteBySig(proposalId, false, 0x00, BALLOT_TYPEHASH, BALLOT_TYPEHASH))
-            .to.be.revertedWith("GovernorAlpha::castVoteBySig: invalid signature");
+      await expect(feswGovernor.castVoteBySig(proposalId, false, 0x00, BALLOT_TYPEHASH, BALLOT_TYPEHASH))
+            .to.be.revertedWith("FeswGovernor::castVoteBySig: invalid signature");
     });
 
     it('casts vote on behalf of the signatory', async () => {
 
       await enfranchise(other1, 40_000_001)
-      await governorAlpha.connect(other1).propose(targets, values, signatures, callDatas, "do nothing");
-      proposalId = await governorAlpha.latestProposalIds(other1.address);
+      await feswGovernor.connect(other1).propose(targets, values, signatures, callDatas, "do nothing");
+      proposalId = await feswGovernor.latestProposalIds(other1.address);
 
       const domainSeparator = utils.keccak256(
         utils.defaultAbiCoder.encode(
           ['bytes32', 'bytes32', 'uint256', 'address'],
-          [DOMAIN_TYPEHASH, utils.keccak256(utils.toUtf8Bytes('Feswap Governor Alpha')), 1, governorAlpha.address]
+          [DOMAIN_TYPEHASH, utils.keccak256(utils.toUtf8Bytes('Feswap Governor Alpha')), 1, feswGovernor.address]
         )
       )
   
@@ -174,17 +174,17 @@ describe('castVote', () => {
   
       const { v, r, s } = ecsign(Buffer.from(digest.slice(2), 'hex'), Buffer.from(other1.privateKey.slice(2), 'hex'))
   
-      let beforeFors = await governorAlpha.proposals(proposalId)
+      let beforeFors = await feswGovernor.proposals(proposalId)
 
       lastBlock = await provider.getBlock('latest')
       await mineBlock(provider, lastBlock.timestamp + 10)
 
-      const castVoteBySigTrx = await governorAlpha.castVoteBySig(proposalId, true, v, r, s)
+      const castVoteBySigTrx = await feswGovernor.castVoteBySig(proposalId, true, v, r, s)
 
       const receipt = await castVoteBySigTrx.wait()
-      expect(receipt.gasUsed).to.eq(82868)    
+      expect(receipt.gasUsed).to.eq(61768)    // 82868
 
-      let afterFors = await governorAlpha.proposals(proposalId)
+      let afterFors = await feswGovernor.proposals(proposalId)
       expect(afterFors.forVotes).to.be.equal(beforeFors.forVotes.add(expandTo18Decimals(40_000_001)))
 
     });
@@ -193,19 +193,19 @@ describe('castVote', () => {
   it("receipt uses one load", async () => {
     await enfranchise(other0, 40_000_001)
     await enfranchise(other1, 40_000_001)    
-    await governorAlpha.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
-    proposalId = await governorAlpha.latestProposalIds(other0.address);
+    await feswGovernor.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
+    proposalId = await feswGovernor.latestProposalIds(other0.address);
 
     lastBlock = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + 10)
     await mineBlock(provider, lastBlock.timestamp + 20)
 
-    await expect(governorAlpha.connect(other0).castVote(proposalId, true, overrides))
-          .to.emit(governorAlpha, 'VoteCast')
+    await expect(feswGovernor.connect(other0).castVote(proposalId, true, overrides))
+          .to.emit(feswGovernor, 'VoteCast')
           .withArgs(other0.address, proposalId, true, expandTo18Decimals(40_000_051))
 
-    await expect(governorAlpha.connect(other1).castVote(proposalId, false, overrides))
-          .to.emit(governorAlpha, 'VoteCast')
+    await expect(feswGovernor.connect(other1).castVote(proposalId, false, overrides))
+          .to.emit(feswGovernor, 'VoteCast')
           .withArgs(other1.address, proposalId, false, expandTo18Decimals(40_000_001))     
   })
 

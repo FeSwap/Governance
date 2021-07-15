@@ -2,21 +2,26 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-contract GovernorAlpha {
+contract FeswGovernor {
     /// @notice The name of this contract
-    string public constant name = "Feswap Governor Alpha";
+    string public constant name = "Feswap Governor";
+    
+    uint public constant QUORUM_VOTES               = 40_000_000e18;        // 4% of Fesw
+    uint public constant PROPOSAL_THRESHOLD         = 10_000_000e18;        // 1% of Fesw
+    uint public constant PROPOSAL_MAX_OPERATIONS    = 10;                   // 10 actions
+    uint public constant VOTING_PERIOD              = 7 days;               // 7 days
 
     /// @notice The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
-    function quorumVotes() public pure returns (uint) { return 40_000_000e18; } // 4% of Fesw
+    uint public quorumVotes;
 
     /// @notice The number of votes required in order for a voter to become a proposer
-    function proposalThreshold() public pure returns (uint) { return 10_000_000e18; } // 1% of Fesw
+    uint public proposalThreshold;
 
     /// @notice The maximum number of actions that can be included in a proposal
-    function proposalMaxOperations() public pure returns (uint) { return 10; } // 10 actions
+    uint public proposalMaxOperations;
 
     /// @notice The duration of voting on a proposal, in blocks
-    function votingPeriod() public pure returns (uint) { return 7 * 24 * 3600; } // 7 days
+    uint public votingPeriod;
 
     /// @notice The address of the Feswap Protocol Timelock
     TimelockInterface public timelock;
@@ -125,25 +130,37 @@ contract GovernorAlpha {
     event ProposalExecuted(uint id);
 
     constructor(address timelock_, address Feswa_) {
-        timelock = TimelockInterface(timelock_);
-        Feswa = FeswaInterface(Feswa_);
+        timelock                = TimelockInterface(timelock_);
+        Feswa                   = FeswaInterface(Feswa_);
+        quorumVotes             = QUORUM_VOTES;
+        proposalThreshold       = PROPOSAL_THRESHOLD;
+        proposalMaxOperations   = PROPOSAL_MAX_OPERATIONS;
+        votingPeriod            = VOTING_PERIOD;
+    }
+
+    function config(uint quorumVotes_, uint proposalThreshold_, uint proposalMaxOperations_, uint votingPeriod_) public {
+        require(msg.sender == address(timelock), "FeswGovernor:: Not Timelock");
+        if (quorumVotes != 0)           quorumVotes = quorumVotes_;
+        if (proposalThreshold != 0)     proposalThreshold = proposalThreshold_;
+        if (proposalMaxOperations != 0) proposalMaxOperations = proposalMaxOperations_;
+        if (votingPeriod != 0)          votingPeriod = votingPeriod_;
     }
 
     function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint) {
-        require(Feswa.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
-        require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorAlpha::propose: proposal function information arity mismatch");
-        require(targets.length != 0, "GovernorAlpha::propose: must provide actions");
-        require(targets.length <= proposalMaxOperations(), "GovernorAlpha::propose: too many actions");
+        require(Feswa.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold, "FeswGovernor::propose: proposer votes below proposal threshold");
+        require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "FeswGovernor::propose: proposal function information arity mismatch");
+        require(targets.length != 0, "FeswGovernor::propose: must provide actions");
+        require(targets.length <= proposalMaxOperations, "FeswGovernor::propose: too many actions");
 
         uint latestProposalId = latestProposalIds[msg.sender];
         if (latestProposalId != 0) {
           ProposalState proposersLatestProposalState = state(latestProposalId);
-          require(proposersLatestProposalState != ProposalState.Active, "GovernorAlpha::propose: one live proposal per proposer, found an already active proposal");
-          require(proposersLatestProposalState != ProposalState.Pending, "GovernorAlpha::propose: one live proposal per proposer, found an already pending proposal");
+          require(proposersLatestProposalState != ProposalState.Active, "FeswGovernor::propose: one live proposal per proposer, found an already active proposal");
+          require(proposersLatestProposalState != ProposalState.Pending, "FeswGovernor::propose: one live proposal per proposer, found an already pending proposal");
         }
 
         uint startBlockTime = block.timestamp;
-        uint endBlockTime = add256(startBlockTime, votingPeriod());
+        uint endBlockTime = add256(startBlockTime, votingPeriod);
 
         proposalCount++;
         Proposal memory newProposal;
@@ -165,7 +182,7 @@ contract GovernorAlpha {
     }
 
     function queue(uint proposalId) public {
-        require(state(proposalId) == ProposalState.Succeeded, "GovernorAlpha::queue: proposal can only be queued if it is succeeded");
+        require(state(proposalId) == ProposalState.Succeeded, "FeswGovernor::queue: proposal can only be queued if it is succeeded");
         Proposal storage proposal = proposals[proposalId];
         uint eta = add256(block.timestamp, timelock.delay());
         for (uint i = 0; i < proposal.targets.length; i++) {
@@ -177,12 +194,12 @@ contract GovernorAlpha {
 
     function _queueOrRevert(address target, uint value, string memory signature, bytes memory data, uint eta) internal {
         require(!timelock.queuedTransactions(keccak256(abi.encode(target, value, signature, data, eta))), 
-                    "GovernorAlpha::_queueOrRevert: proposal action already queued at eta");
+                    "FeswGovernor::_queueOrRevert: proposal action already queued at eta");
         timelock.queueTransaction(target, value, signature, data, eta);
     }
 
     function execute(uint proposalId) public payable {
-        require(state(proposalId) == ProposalState.Queued, "GovernorAlpha::execute: proposal can only be executed if it is queued");
+        require(state(proposalId) == ProposalState.Queued, "FeswGovernor::execute: proposal can only be executed if it is queued");
         Proposal storage proposal = proposals[proposalId];
         proposal.executed = true;
         for (uint i = 0; i < proposal.targets.length; i++) {
@@ -192,10 +209,10 @@ contract GovernorAlpha {
     }
 
     function cancel(uint proposalId) public {
-        require(state(proposalId) != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
+        require(state(proposalId) != ProposalState.Executed, "FeswGovernor::cancel: cannot cancel executed proposal");
 
         Proposal storage proposal = proposals[proposalId];
-        require(Feswa.getPriorVotes(proposal.proposer, sub256(block.number, 1)) < proposalThreshold(), "GovernorAlpha::cancel: proposer above threshold");
+        require(Feswa.getPriorVotes(proposal.proposer, sub256(block.number, 1)) < proposalThreshold, "FeswGovernor::cancel: proposer above threshold");
 
         proposal.canceled = true;
         for (uint i = 0; i < proposal.targets.length; i++) {
@@ -215,7 +232,7 @@ contract GovernorAlpha {
     }
 
     function state(uint proposalId) public view returns (ProposalState) {
-        require(proposalCount >= proposalId && proposalId > 0, "GovernorAlpha::state: invalid proposal id");
+        require(proposalCount >= proposalId && proposalId > 0, "FeswGovernor::state: invalid proposal id");
         Proposal storage proposal = proposals[proposalId];
         if (proposal.canceled) {
             return ProposalState.Canceled;
@@ -223,7 +240,7 @@ contract GovernorAlpha {
             return ProposalState.Pending;
         } else if (block.timestamp <= proposal.endBlockTime) {
             return ProposalState.Active;
-        } else if (proposal.forVotes <= proposal.againstVotes || proposal.forVotes < quorumVotes()) {
+        } else if (proposal.forVotes <= proposal.againstVotes || proposal.forVotes < quorumVotes) {
             return ProposalState.Defeated;
         } else if (proposal.eta == 0) {
             return ProposalState.Succeeded;
@@ -245,15 +262,15 @@ contract GovernorAlpha {
         bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, support));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
         address signatory = ecrecover(digest, v, r, s);
-        require(signatory != address(0), "GovernorAlpha::castVoteBySig: invalid signature");
+        require(signatory != address(0), "FeswGovernor::castVoteBySig: invalid signature");
         return _castVote(signatory, proposalId, support);
     }
 
     function _castVote(address voter, uint proposalId, bool support) internal {
-        require(state(proposalId) == ProposalState.Active, "GovernorAlpha::_castVote: voting is closed");
+        require(state(proposalId) == ProposalState.Active, "FeswGovernor::_castVote: voting is closed");
         Proposal storage proposal = proposals[proposalId];
         Receipt storage receipt = receipts[proposalId][voter];
-        require(receipt.hasVoted == false, "GovernorAlpha::_castVote: voter already voted");
+        require(receipt.hasVoted == false, "FeswGovernor::_castVote: voter already voted");
         uint96 votes = Feswa.getPriorVotes(voter, proposal.startBlock);
 
         if (support) {

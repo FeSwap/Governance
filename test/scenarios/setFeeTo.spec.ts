@@ -22,12 +22,12 @@ describe('scenario:setFeeTo', () => {
 
   let Feswa: Contract
   let timelock: Contract
-  let governorAlpha: Contract
+  let feswGovernor: Contract
   beforeEach(async () => {
     const fixture = await loadFixture(governanceFixture)
     Feswa = fixture.Feswa
     timelock = fixture.timelock
-    governorAlpha = fixture.governorAlpha
+    feswGovernor = fixture.feswGovernor
   })
 
   let factory: Contract
@@ -47,21 +47,21 @@ describe('scenario:setFeeTo', () => {
     const { timestamp: now } = await provider.getBlock('latest')
     await mineBlock(provider, now)
 
-    const proposalId = await governorAlpha.callStatic.propose([target], [value], [signature], [calldata], description)
-    await governorAlpha.propose([target], [value], [signature], [calldata], description)
+    const proposalId = await feswGovernor.callStatic.propose([target], [value], [signature], [calldata], description)
+    await feswGovernor.propose([target], [value], [signature], [calldata], description)
 
     await mineBlock(provider, now + 10)
-    await governorAlpha.castVote(proposalId, true)
+    await feswGovernor.castVote(proposalId, true)
 
     let lastBlock = await provider.getBlock('latest') 
     await mineBlock(provider, lastBlock.timestamp +  7*24*3600 + 1)
  
-    await governorAlpha.queue(proposalId)
+    await feswGovernor.queue(proposalId)
 
     lastBlock = await provider.getBlock('latest') 
     await mineBlock(provider, lastBlock.timestamp +  2 * 24 * 3600 + 1)
 
-    await governorAlpha.execute(proposalId)
+    await feswGovernor.execute(proposalId)
 
     const feeTo = await factory.feeTo()
     expect(feeTo).to.be.eq(timelock.address)

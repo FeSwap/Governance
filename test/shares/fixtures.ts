@@ -4,7 +4,7 @@ import { solidity, deployContract } from 'ethereum-waffle'
 
 import FeswapByteCode from '../../build/Fesw.json'
 import Timelock from '../../build/Timelock.json'
-import GovernorAlpha from '../../build/GovernorAlpha.json'
+import FeswGovernor from '../../build/FeswGovernor.json'
 import FeswaNFTCode from '../../build/FeswaNFT.json'
 import TestERC20 from '../../build/TestERC20.json'  
 import FeswSponsor from '../../build/FeswSponsor.json'  
@@ -18,7 +18,7 @@ chai.use(solidity)
 interface GovernanceFixture {
   Feswa: Contract
   timelock: Contract
-  governorAlpha: Contract
+  feswGovernor: Contract
 }
 
 export async function governanceFixture(
@@ -31,22 +31,22 @@ export async function governanceFixture(
   const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, timelockAddress, now + 60 * 60])
 
   // deploy timelock, controlled by what will be the governor
-  const governorAlphaAddress = Contract.getContractAddress({ from: wallet.address, nonce: 2 })
-  const timelock = await deployContract(wallet, Timelock, [governorAlphaAddress, DELAY])
+  const feswGovernorAddress = Contract.getContractAddress({ from: wallet.address, nonce: 2 })
+  const timelock = await deployContract(wallet, Timelock, [feswGovernorAddress, DELAY])
   expect(timelock.address).to.be.eq(timelockAddress)
 
-  // deploy governorAlpha
-  const governorAlpha = await deployContract(wallet, GovernorAlpha, [timelock.address, Feswa.address])
-  expect(governorAlpha.address).to.be.eq(governorAlphaAddress)
+  // deploy feswGovernor
+  const feswGovernor = await deployContract(wallet, FeswGovernor, [timelock.address, Feswa.address])
+  expect(feswGovernor.address).to.be.eq(feswGovernorAddress)
 
-  return { Feswa, timelock, governorAlpha }
+  return { Feswa, timelock, feswGovernor }
 }
 
 
 interface SponsorFixture {
   Feswa: Contract
   timelock: Contract
-  governorAlpha: Contract
+  feswGovernor: Contract
   sponsor: Contract
 }
 
@@ -60,22 +60,22 @@ export async function sponsorFixture(
   const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, timelockAddress, now + 60 * 60])
 
   // deploy timelock, controlled by what will be the governor
-  const governorAlphaAddress = Contract.getContractAddress({ from: wallet.address, nonce: 2 })
-  const timelock = await deployContract(wallet, Timelock, [governorAlphaAddress, DELAY])
+  const feswGovernorAddress = Contract.getContractAddress({ from: wallet.address, nonce: 2 })
+  const timelock = await deployContract(wallet, Timelock, [feswGovernorAddress, DELAY])
   expect(timelock.address).to.be.eq(timelockAddress)
 
-  // deploy governorAlpha
-  const governorAlpha = await deployContract(wallet, GovernorAlpha, [timelock.address, Feswa.address])
-  expect(governorAlpha.address).to.be.eq(governorAlphaAddress)
+  // deploy feswGovernor
+  const feswGovernor = await deployContract(wallet, FeswGovernor, [timelock.address, Feswa.address])
+  expect(feswGovernor.address).to.be.eq(feswGovernorAddress)
 
-  // deploy governorAlpha
+  // deploy feswGovernor
   const lastBlock = await provider.getBlock('latest')
   const sponsor = await deployContract(wallet, FeswSponsor, [Feswa.address, wallet.address, timelock.address, lastBlock.timestamp + 60 *60])
 
   // total giveaway FESW
   await Feswa.transfer(sponsor.address, expandTo18Decimals(100_000_000))
 
-  return { Feswa, timelock, governorAlpha, sponsor }
+  return { Feswa, timelock, feswGovernor, sponsor }
 }
 
 const initPoolPrice = expandTo18Decimals(1).div(5)

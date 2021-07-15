@@ -24,7 +24,7 @@ enum ProposalState {
   Executed
 }
 
-describe('GovernorAlpha Queue Test', () => {
+describe('FeswGovernor Queue Test', () => {
   const provider = new MockProvider({
     ganacheOptions: {
       hardfork: 'istanbul',
@@ -38,7 +38,7 @@ describe('GovernorAlpha Queue Test', () => {
   const loadFixture = createFixtureLoader([wallet], provider)
 
   let Feswa: Contract
-  let governorAlpha: Contract
+  let feswGovernor: Contract
   let proposalId: BigNumber
   let lastBlock: Block
 
@@ -50,11 +50,11 @@ describe('GovernorAlpha Queue Test', () => {
   beforeEach(async () => {
     const fixture = await loadFixture(governanceFixture)
     Feswa = fixture.Feswa
-    governorAlpha = fixture.governorAlpha
+    feswGovernor = fixture.feswGovernor
 
     await Feswa.delegate(wallet.address);
-    await governorAlpha.propose(targets, values, signatures, callDatas, "do nothing");
-    proposalId = await governorAlpha.latestProposalIds(wallet.address);
+    await feswGovernor.propose(targets, values, signatures, callDatas, "do nothing");
+    proposalId = await feswGovernor.latestProposalIds(wallet.address);
     lastBlock = await provider.getBlock('latest')
    })
 
@@ -69,29 +69,29 @@ describe('GovernorAlpha Queue Test', () => {
       const signatures = ["getBalanceOf(address)", "getBalanceOf(address)"];
       const callDatas = [encodeParameters(['address'], [other0.address]), encodeParameters(['address'], [other0.address])];
 
-      await governorAlpha.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
-      proposalId = await governorAlpha.latestProposalIds(other0.address);
+      await feswGovernor.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
+      proposalId = await feswGovernor.latestProposalIds(other0.address);
 
       // increase the block number to prepare for casting vote
       lastBlock = await provider.getBlock('latest')
       await mineBlock(provider, lastBlock.timestamp + 10)
 
-      await governorAlpha.connect(other0).castVote(proposalId, true, overrides)
+      await feswGovernor.connect(other0).castVote(proposalId, true, overrides)
 
       await mineBlock(provider, lastBlock.timestamp + 20)
 
       // TP1：Check the proposal state be in Active state
-      expect(await governorAlpha.state(proposalId)).to.be.equal(BigNumber.from(ProposalState.Active)) 
+      expect(await feswGovernor.state(proposalId)).to.be.equal(BigNumber.from(ProposalState.Active)) 
 
       // TP2：Proposal still be active, not be ready for Queue
-      await expect(governorAlpha.connect(other0).queue(proposalId, overrides))
-            .to.be.revertedWith("GovernorAlpha::queue: proposal can only be queued if it is succeeded")
+      await expect(feswGovernor.connect(other0).queue(proposalId, overrides))
+            .to.be.revertedWith("FeswGovernor::queue: proposal can only be queued if it is succeeded")
 
       await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
       // TP3: Reverts on queueing overlapping actions in same proposal
-      await expect(governorAlpha.connect(other0).queue(proposalId, overrides))
-            .to.be.revertedWith("GovernorAlpha::_queueOrRevert: proposal action already queued at eta")
+      await expect(feswGovernor.connect(other0).queue(proposalId, overrides))
+            .to.be.revertedWith("FeswGovernor::_queueOrRevert: proposal action already queued at eta")
     });
 
     it("reverts on queueing overlapping actions in different proposals, works if waiting", async () => {
@@ -106,43 +106,43 @@ describe('GovernorAlpha Queue Test', () => {
       const signatures = ["getBalanceOf(address)"];
       const callDatas = [encodeParameters(['address'], [other0.address])];
 
-      await governorAlpha.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
-      await governorAlpha.connect(other1).propose(targets, values, signatures, callDatas, "do nothing");
+      await feswGovernor.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
+      await feswGovernor.connect(other1).propose(targets, values, signatures, callDatas, "do nothing");
 
-      const proposalId1 = await governorAlpha.latestProposalIds(other0.address);
-      const proposalId2 = await governorAlpha.latestProposalIds(other1.address);
+      const proposalId1 = await feswGovernor.latestProposalIds(other0.address);
+      const proposalId2 = await feswGovernor.latestProposalIds(other1.address);
 
       // increase the block number to prepare for casting vote
       lastBlock = await provider.getBlock('latest')
       await mineBlock(provider, lastBlock.timestamp + 10)
 
-      await governorAlpha.connect(other0).castVote(proposalId1, true, overrides)
-      await governorAlpha.connect(other1).castVote(proposalId2, true, overrides)
+      await feswGovernor.connect(other0).castVote(proposalId1, true, overrides)
+      await feswGovernor.connect(other1).castVote(proposalId2, true, overrides)
 
       await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
       // TP1: Queue succeed for proposal 1
-      await governorAlpha.queue(proposalId1, overrides)
-      let proposal = await governorAlpha.proposals(proposalId1, overrides)
+      await feswGovernor.queue(proposalId1, overrides)
+      let proposal = await feswGovernor.proposals(proposalId1, overrides)
 
       // TP2: Check the eta be set correctly
       lastBlock = await provider.getBlock('latest')
       expect(proposal.eta).to.be.equal(lastBlock.timestamp + 48 * 3600)
   
       // TP3: Reverts on queueing overlapping actions in different proposals
-      await expect(governorAlpha.queue(proposalId2, overrides))
-            .to.be.revertedWith("GovernorAlpha::_queueOrRevert: proposal action already queued at eta")
+      await expect(feswGovernor.queue(proposalId2, overrides))
+            .to.be.revertedWith("FeswGovernor::_queueOrRevert: proposal action already queued at eta")
       
       // TP4: Move timestamp forward, and Queue once again
       await mineBlock(provider, lastBlock.timestamp + 60)
-      await governorAlpha.queue(proposalId2, overrides)
+      await feswGovernor.queue(proposalId2, overrides)
 
       // TP5：Check the proposal state be in Active state
-      expect(await governorAlpha.state(proposalId2)).to.be.equal(BigNumber.from(ProposalState.Queued)) 
+      expect(await feswGovernor.state(proposalId2)).to.be.equal(BigNumber.from(ProposalState.Queued)) 
 
       // TP6: Reverts on queueing while already queued
-      await expect(governorAlpha.queue(proposalId2, overrides))
-            .to.be.revertedWith("GovernorAlpha::queue: proposal can only be queued if it is succeeded")
+      await expect(feswGovernor.queue(proposalId2, overrides))
+            .to.be.revertedWith("FeswGovernor::queue: proposal can only be queued if it is succeeded")
 
     });
   });

@@ -24,7 +24,7 @@ enum ProposalState {
   Executed
 }
 
-describe('GovernorAlpha State Test', () => {
+describe('FeswGovernor State Test', () => {
   const provider = new MockProvider({
     ganacheOptions: {
       hardfork: 'istanbul',
@@ -39,7 +39,7 @@ describe('GovernorAlpha State Test', () => {
 
   let Feswa: Contract
   let timelock: Contract
-  let governorAlpha: Contract
+  let feswGovernor: Contract
   let proposalId: BigNumber
   let lastBlock: Block
   let trivialProposal: any
@@ -53,28 +53,28 @@ describe('GovernorAlpha State Test', () => {
     const fixture = await loadFixture(governanceFixture)
     Feswa = fixture.Feswa
     timelock = fixture.timelock
-    governorAlpha = fixture.governorAlpha
+    feswGovernor = fixture.feswGovernor
 
     await Feswa.delegate(wallet.address);
-    await governorAlpha.propose(targets, values, signatures, callDatas, "do nothing");
-    proposalId = await governorAlpha.latestProposalIds(wallet.address);
+    await feswGovernor.propose(targets, values, signatures, callDatas, "do nothing");
+    proposalId = await feswGovernor.latestProposalIds(wallet.address);
     lastBlock = await provider.getBlock('latest')
-    trivialProposal = await governorAlpha.proposals(proposalId);
+    trivialProposal = await feswGovernor.proposals(proposalId);
   })
 
   it("Invalid for proposal not found", async () => {
-    await expect(governorAlpha.state(proposalId.add(1))).to.be.revertedWith("GovernorAlpha::state: invalid proposal id")
+    await expect(feswGovernor.state(proposalId.add(1))).to.be.revertedWith("FeswGovernor::state: invalid proposal id")
   })
 
   it("Pending", async () => {
-    expect(await governorAlpha.state(proposalId)).to.be.eq(ProposalState.Pending)
+    expect(await feswGovernor.state(proposalId)).to.be.eq(ProposalState.Pending)
   })
 
   it("Active", async () => {
     lastBlock = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + 10)
     await mineBlock(provider, lastBlock.timestamp + 20)
-    expect(await governorAlpha.state(proposalId)).to.be.eq(ProposalState.Active)
+    expect(await feswGovernor.state(proposalId)).to.be.eq(ProposalState.Active)
   })
 
   it("Canceled", async () => {
@@ -83,14 +83,14 @@ describe('GovernorAlpha State Test', () => {
     lastBlock = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + 10)
 
-    await governorAlpha.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
-    let newProposalId = await governorAlpha.proposalCount();
+    await feswGovernor.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
+    let newProposalId = await feswGovernor.proposalCount();
 
     // send away the delegates
     await Feswa.connect(other0).delegate(wallet.address); 
-    await governorAlpha.cancel(newProposalId)
+    await feswGovernor.cancel(newProposalId)
 
-    expect(await governorAlpha.state(+newProposalId)).to.be.eq(ProposalState.Canceled)
+    expect(await feswGovernor.state(+newProposalId)).to.be.eq(ProposalState.Canceled)
   })
 
   it("Defeated", async () => {
@@ -98,93 +98,93 @@ describe('GovernorAlpha State Test', () => {
     lastBlock = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
-    expect(await governorAlpha.state(proposalId)).to.be.eq(ProposalState.Defeated)
+    expect(await feswGovernor.state(proposalId)).to.be.eq(ProposalState.Defeated)
   })
 
   it("Succeeded", async () => {
     await Feswa.transfer(other0.address, expandTo18Decimals(40_000_000))
     await Feswa.connect(other0).delegate(other0.address);
-    await governorAlpha.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
-    let newProposalId = await governorAlpha.proposalCount();
+    await feswGovernor.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
+    let newProposalId = await feswGovernor.proposalCount();
 
     lastBlock = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + 10)
-    await governorAlpha.connect(other0).castVote(newProposalId, true)
+    await feswGovernor.connect(other0).castVote(newProposalId, true)
  
     await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
-    expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Succeeded)
+    expect(await feswGovernor.state(newProposalId)).to.be.eq(ProposalState.Succeeded)
   })
 
   it("Queued", async () => {
     await Feswa.transfer(other0.address, expandTo18Decimals(40_000_000))
     await Feswa.connect(other0).delegate(other0.address);
-    await governorAlpha.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
-    let newProposalId = await governorAlpha.proposalCount();
+    await feswGovernor.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
+    let newProposalId = await feswGovernor.proposalCount();
 
     lastBlock = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + 10)
-    await governorAlpha.connect(other0).castVote(newProposalId, true)
+    await feswGovernor.connect(other0).castVote(newProposalId, true)
  
     await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
-    await governorAlpha.queue(newProposalId)
-    expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Queued)
+    await feswGovernor.queue(newProposalId)
+    expect(await feswGovernor.state(newProposalId)).to.be.eq(ProposalState.Queued)
   })
 
   it("Expired", async () => {
     await Feswa.transfer(other0.address, expandTo18Decimals(40_000_000))
     await Feswa.connect(other0).delegate(other0.address);
-    await governorAlpha.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
-    let newProposalId = await governorAlpha.proposalCount();
+    await feswGovernor.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
+    let newProposalId = await feswGovernor.proposalCount();
 
     lastBlock = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + 10)
-    await governorAlpha.connect(other0).castVote(newProposalId, true)
+    await feswGovernor.connect(other0).castVote(newProposalId, true)
  
     await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
-    await governorAlpha.queue(newProposalId)
-    expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Queued)
+    await feswGovernor.queue(newProposalId)
+    expect(await feswGovernor.state(newProposalId)).to.be.eq(ProposalState.Queued)
 
     let gracePeriod = await timelock.GRACE_PERIOD()
-    trivialProposal = await governorAlpha.proposals(newProposalId);
+    trivialProposal = await feswGovernor.proposals(newProposalId);
     let periodtime: number = (gracePeriod as BigNumber).add(trivialProposal.eta).toNumber()
 
     await mineBlock(provider,periodtime-1)
-    expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Queued)
+    expect(await feswGovernor.state(newProposalId)).to.be.eq(ProposalState.Queued)
 
     await mineBlock(provider,periodtime)
-    expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Expired)
+    expect(await feswGovernor.state(newProposalId)).to.be.eq(ProposalState.Expired)
 
   })
 
   it("Executed", async () => {
     await Feswa.transfer(other0.address, expandTo18Decimals(40_000_000))
     await Feswa.connect(other0).delegate(other0.address);
-    await governorAlpha.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
-    let newProposalId = await governorAlpha.proposalCount();
+    await feswGovernor.connect(other0).propose(targets, values, signatures, callDatas, "do nothing");
+    let newProposalId = await feswGovernor.proposalCount();
 
     lastBlock = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + 10)
-    await governorAlpha.connect(other0).castVote(newProposalId, true)
+    await feswGovernor.connect(other0).castVote(newProposalId, true)
  
     await mineBlock(provider, lastBlock.timestamp + 7 *24 *3600 + 1)
 
-    await governorAlpha.queue(newProposalId)
-    expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Queued)
+    await feswGovernor.queue(newProposalId)
+    expect(await feswGovernor.state(newProposalId)).to.be.eq(ProposalState.Queued)
 
     let gracePeriod = await timelock.GRACE_PERIOD()
-    trivialProposal = await governorAlpha.proposals(newProposalId);
+    trivialProposal = await feswGovernor.proposals(newProposalId);
     let periodtime: number = (gracePeriod as BigNumber).add(trivialProposal.eta).toNumber()
 
     await mineBlock(provider,periodtime-2)
-    expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Queued)
+    expect(await feswGovernor.state(newProposalId)).to.be.eq(ProposalState.Queued)
 
-    await governorAlpha.connect(other0).execute(newProposalId, overrides)
-    expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Executed)
+    await feswGovernor.connect(other0).execute(newProposalId, overrides)
+    expect(await feswGovernor.state(newProposalId)).to.be.eq(ProposalState.Executed)
 
     await mineBlock(provider,periodtime)
-    expect(await governorAlpha.state(newProposalId)).to.be.eq(ProposalState.Executed)
+    expect(await feswGovernor.state(newProposalId)).to.be.eq(ProposalState.Executed)
   })
 })

@@ -40,7 +40,7 @@ describe('FeswapSponsor', () => {
 
   let Feswa: Contract
   let timelock: Contract
-  let governorAlpha: Contract
+  let feswGovernor: Contract
   let sponsorContract: Contract
 
 
@@ -48,7 +48,7 @@ describe('FeswapSponsor', () => {
     const fixture = await loadFixture(sponsorFixture)
     Feswa = fixture.Feswa;
     timelock = fixture.timelock
-    governorAlpha = fixture.governorAlpha
+    feswGovernor = fixture.feswGovernor
     sponsorContract = fixture.sponsor
   })
 

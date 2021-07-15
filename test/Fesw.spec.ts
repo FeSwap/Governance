@@ -38,7 +38,7 @@ describe('Feswap', () => {
 
   let Feswa: Contract
   let timelock: Contract
-  let governorAlpha: Contract
+  let feswGovernor: Contract
   let proposalId: BigNumber
   let lastBlock: Block
 
@@ -46,7 +46,7 @@ describe('Feswap', () => {
     const fixture = await loadFixture(governanceFixture)
     Feswa = fixture.Feswa;
     timelock = fixture.timelock
-    governorAlpha = fixture.governorAlpha
+    feswGovernor = fixture.feswGovernor
   })
 
   it('name, symbol, decimals, totalSupply, balanceOf, nonces, DOMAIN_SEPARATOR, PERMIT_TYPEHASH', async () => {
@@ -87,34 +87,34 @@ describe('Feswap', () => {
 
     // only the initial account need to delegate to itself
     await Feswa.delegate(wallet.address);
-    await governorAlpha.propose(targets, values, signatures, callDatas, "setMinter to other0");
-    proposalId = await governorAlpha.latestProposalIds(wallet.address);
+    await feswGovernor.propose(targets, values, signatures, callDatas, "setMinter to other0");
+    proposalId = await feswGovernor.latestProposalIds(wallet.address);
 
     // increase the block number to prepare for casting vote
     lastBlock = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + 10)
 
-    await governorAlpha.castVote(proposalId, true, overrides);
+    await feswGovernor.castVote(proposalId, true, overrides);
  
     //  Need to increase 7*24*3600 seconds to queue the proposal 
     await mineBlock(provider, lastBlock.timestamp + 20)
-    await expect(governorAlpha.queue(proposalId, overrides))
-          .to.be.revertedWith('GovernorAlpha::queue: proposal can only be queued if it is succeeded')
+    await expect(feswGovernor.queue(proposalId, overrides))
+          .to.be.revertedWith('FeswGovernor::queue: proposal can only be queued if it is succeeded')
 
     await mineBlock(provider, lastBlock.timestamp +  7*24*3600 + 1)
-    await governorAlpha.queue(proposalId, overrides)
+    await feswGovernor.queue(proposalId, overrides)
 
     // Simutate time daly (2 days) to execute proposal
     lastBlock = await provider.getBlock('latest') 
     await mineBlock(provider, lastBlock.timestamp + 3600 * 24)
     
-    await expect(governorAlpha.execute(proposalId, overrides))
+    await expect(feswGovernor.execute(proposalId, overrides))
           .to.be.revertedWith('Timelock::executeTransaction: Transaction hasn\'t surpassed time lock.')
 
     lastBlock = await provider.getBlock('latest') 
     await mineBlock(provider, lastBlock.timestamp + 3600 * 24)
  
-    await governorAlpha.execute(proposalId, overrides)
+    await feswGovernor.execute(proposalId, overrides)
     expect(await Feswa.minterBurner()).to.eq(other0.address)
   
   })

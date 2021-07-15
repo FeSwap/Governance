@@ -38,7 +38,7 @@ describe('Timelock', () => {
 
   let Feswa: Contract
   let timelock: Contract
-  let governorAlpha: Contract
+  let feswGovernor: Contract
   let proposalId: BigNumber
   let lastBlock: Block
 
@@ -55,7 +55,7 @@ describe('Timelock', () => {
   beforeEach(async () => {
     const fixture = await loadFixture(governanceFixture)
     Feswa = fixture.Feswa;
-    governorAlpha = fixture.governorAlpha
+    feswGovernor = fixture.feswGovernor
     timelock = await deployContract(wallet, Timelock, [wallet.address, DELAY])
     lastBlock = await provider.getBlock('latest')
 
