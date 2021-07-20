@@ -20,6 +20,7 @@ describe('StakingRewards', () => {
   })
   const [wallet, staker, secondStaker] = provider.getWallets()
   const loadFixture = createFixtureLoader([wallet], provider)
+  const reward = expandTo18Decimals(100)
 
   let stakingRewards: Contract
   let rewardsToken: Contract
@@ -30,6 +31,18 @@ describe('StakingRewards', () => {
     rewardsToken = fixture.rewardsToken
     stakingToken = fixture.stakingToken
   })
+
+  async function start(reward: BigNumber): Promise<{ startTime: BigNumber; endTime: BigNumber }> {
+    // send reward to the contract
+    await rewardsToken.transfer(stakingRewards.address, reward)
+    // must be called by rewardsDistribution
+    await stakingRewards.notifyRewardAmount(reward)
+
+    const startTime: BigNumber = await stakingRewards.lastUpdateTime()
+    const endTime: BigNumber = await stakingRewards.periodFinish()
+    expect(endTime).to.be.eq(startTime.add(REWARDS_DURATION))
+    return { startTime, endTime }
+  }
 
   it('deploy cost', async () => {
     const stakingRewards = await deployContract(wallet, StakingRewards, [
@@ -45,19 +58,6 @@ describe('StakingRewards', () => {
     const rewardsDuration = await stakingRewards.rewardsDuration()
     expect(rewardsDuration).to.be.eq(REWARDS_DURATION)
   })
-
-  const reward = expandTo18Decimals(100)
-  async function start(reward: BigNumber): Promise<{ startTime: BigNumber; endTime: BigNumber }> {
-    // send reward to the contract
-    await rewardsToken.transfer(stakingRewards.address, reward)
-    // must be called by rewardsDistribution
-    await stakingRewards.notifyRewardAmount(reward)
-
-    const startTime: BigNumber = await stakingRewards.lastUpdateTime()
-    const endTime: BigNumber = await stakingRewards.periodFinish()
-    expect(endTime).to.be.eq(startTime.add(REWARDS_DURATION))
-    return { startTime, endTime }
-  }
 
   it('notifyRewardAmount: full', async () => {
     // stake with staker

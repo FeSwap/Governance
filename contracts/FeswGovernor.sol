@@ -183,6 +183,7 @@ contract FeswGovernor {
 
     function queue(uint proposalId) public {
         require(state(proposalId) == ProposalState.Succeeded, "FeswGovernor::queue: proposal can only be queued if it is succeeded");
+
         Proposal storage proposal = proposals[proposalId];
         uint eta = add256(block.timestamp, timelock.delay());
         for (uint i = 0; i < proposal.targets.length; i++) {

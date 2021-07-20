@@ -156,7 +156,7 @@ describe('castVote', () => {
       const domainSeparator = utils.keccak256(
         utils.defaultAbiCoder.encode(
           ['bytes32', 'bytes32', 'uint256', 'address'],
-          [DOMAIN_TYPEHASH, utils.keccak256(utils.toUtf8Bytes('Feswap Governor Alpha')), 1, feswGovernor.address]
+          [DOMAIN_TYPEHASH, utils.keccak256(utils.toUtf8Bytes('Feswap Governor')), 1, feswGovernor.address]
         )
       )
   
@@ -182,7 +182,7 @@ describe('castVote', () => {
       const castVoteBySigTrx = await feswGovernor.castVoteBySig(proposalId, true, v, r, s)
 
       const receipt = await castVoteBySigTrx.wait()
-      expect(receipt.gasUsed).to.eq(61768)    // 82868
+      expect(receipt.gasUsed).to.eq(82933)    // 82868
 
       let afterFors = await feswGovernor.proposals(proposalId)
       expect(afterFors.forVotes).to.be.equal(beforeFors.forVotes.add(expandTo18Decimals(40_000_001)))
