@@ -47,13 +47,13 @@ contract FeswaNFT is ERC721, Ownable {
     // Price offering waiting duration: 2 Hours
     uint256 public constant CLOSE_BID_DELAY = (3600 * 2);           
 
-    // Airdrop for the first tender: 1000 FEST
+    // Airdrop for the first tender: 1000 FESW
     uint256 public constant AIRDROP_FOR_FIRST = 1000e18;  
 
-    // Airdrop for the next tender: 500 FEST
+    // Airdrop for the next tender: 500 FESW
     uint256 public constant AIRDROP_FOR_NEXT = 500e18;  
 
-    // Airdrop rate for Bid winner: 20000 FEST/ETH
+    // Airdrop rate for Bid winner: 20000 FESW/ETH
     uint256 public constant AIRDROP_RATE_FOR_WINNER = 20000;    
 
     // Minimum price increase for tender: 0.1ETH
@@ -69,7 +69,7 @@ contract FeswaNFT is ERC721, Ownable {
     uint256 public PriceLowLimit;       
 
     // Sale start timestamp
-    uint256 public SaleStartTime;                                   // 1614556800  //2021/03/01 00:00
+    uint256 public SaleStartTime;                                   // 1626825600  //2021/07/21 08:00
 
     // Mapping from token ID to token pair infomation
     mapping (uint256 => FeswaPair) public ListPools;
