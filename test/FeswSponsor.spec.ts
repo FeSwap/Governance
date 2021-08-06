@@ -21,8 +21,8 @@ const overrides = {
   gasPrice: 1000
 }
 
-function getGiveRate(nETH: number): BigNumber {
-  return BigNumber.from(100_000).sub(BigNumber.from(nETH).mul(20))
+function getGiveRate(nETH: BigNumber): BigNumber {
+  return BigNumber.from(100_000).sub(nETH.mul(20).div(ETHOne))
 }
 
 describe('FeswapSponsor', () => {
@@ -54,7 +54,7 @@ describe('FeswapSponsor', () => {
 
   it('Sponsor contract basic checking', async () => {
     expect(await sponsorContract.TARGET_RAISING_ETH()).to.eq(RAISING_TARGET)
-    expect(await sponsorContract.CAP_RAISING_ETH()).to.eq(RAISING_CAP)
+    expect(await sponsorContract.MIN_GUARANTEE_ETH()).to.eq(ETHOne)
     expect(await sponsorContract.INITIAL_FESW_RATE_PER_ETH()).to.eq(100_000)
     expect(await sponsorContract.FESW_CHANGE_RATE_VERSUS_ETH()).to.eq(20)
     expect(await sponsorContract.SPONSOR_DURATION()).to.eq(30*24*60*60)
@@ -79,7 +79,7 @@ describe('FeswapSponsor', () => {
     let lastBlock  = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + 60 * 60)       
     const {timestamp: startTime}  = await provider.getBlock('latest')
-    giveRate = getGiveRate(0)
+    giveRate = getGiveRate(BigNumber.from(0))
         
     // 2. Normal sponsor: 1ETH
     await expect(sponsorContract.Sponsor(other0.address, { ...overrides, value: ETHOne } ))
@@ -102,7 +102,7 @@ describe('FeswapSponsor', () => {
     expect(await Feswa.balanceOf(other1.address)).to.eq(feswOther1)
 
     // 4. Skip the block timestamp, and check the rate
-    giveRate = getGiveRate(TotalSponsor.div(ETHOne).toNumber())
+    giveRate = getGiveRate(TotalSponsor)
     await mineBlock(provider, startTime + 10)
     await expect(sponsorContract.connect(other0).Sponsor(other0.address, { ...overrides, value: ETHOne } ))
             .to.emit(sponsorContract,'EvtSponsorReceived')
@@ -124,7 +124,7 @@ describe('FeswapSponsor', () => {
     expect(await Feswa.balanceOf(other1.address)).to.eq(feswOther1)
  
     // 6. Continue to sponsor to 992 ETH: 790ETH
-    giveRate = getGiveRate(TotalSponsor.div(ETHOne).toNumber())
+    giveRate = getGiveRate(TotalSponsor)
     await mineBlock(provider, startTime + 20)
     await expect(sponsorContract.connect(other0).Sponsor(other0.address, { ...overrides, value: ETHOne.mul(790) } ))
             .to.emit(sponsorContract,'EvtSponsorReceived')
@@ -135,15 +135,15 @@ describe('FeswapSponsor', () => {
     expect(await Feswa.balanceOf(other0.address)).to.eq(feswOther0)   
     expect(await sponsorContract.TotalETHReceived()).to.eq(TotalSponsor)    
 
-    // 7. Continue to sponsor to 1012 ETH by sponsoring 20ETH, 11ETH are returned
-    giveRate = getGiveRate(TotalSponsor.div(ETHOne).toNumber())
+    // 7. Continue to sponsor to 1012 ETH by sponsoring 20ETH, 12ETH are returned
+    giveRate = getGiveRate(TotalSponsor)
     await mineBlock(provider, startTime + 30)
     await expect(sponsorContract.connect(other1).Sponsor(other1.address, { ...overrides, value: ETHOne.mul(20) } ))
             .to.emit(sponsorContract,'EvtSponsorReceived')
-            .withArgs(other1.address, other1.address, ETHOne.mul(9))
-    TotalSponsor = TotalSponsor.add(ETHOne.mul(9))   
+            .withArgs(other1.address, other1.address, ETHOne.mul(8))
+    TotalSponsor = TotalSponsor.add(ETHOne.mul(8))   
 
-    feswOther1 = feswOther1.add(ETHOne.mul(9).mul(giveRate))    
+    feswOther1 = feswOther1.add(ETHOne.mul(8).mul(giveRate))    
     expect(await Feswa.balanceOf(other1.address)).to.eq(feswOther1)   
     expect(await sponsorContract.TotalETHReceived()).to.eq(TotalSponsor)   
 
@@ -164,9 +164,115 @@ describe('FeswapSponsor', () => {
     // 12. Finalize the sponsor 
     await expect(sponsorContract.finalizeSponsor())
             .to.emit(sponsorContract,'EvtSponsorFinalized')
-            .withArgs(wallet.address,  ETHOne.mul(1001))
+            .withArgs(wallet.address,  ETHOne.mul(1000))
 
   })
+
+    it('Raising Sponsor: Minimum 1ETH accepted for the last person', async () => {
+        let TotalSponsor = BigNumber.from(0)
+        let feswOther0: BigNumber
+        let feswOther1: BigNumber
+        let giveRate: BigNumber
+    
+        // Skip to start time          
+        let lastBlock  = await provider.getBlock('latest')
+        await mineBlock(provider, lastBlock.timestamp + 60 * 60)       
+        const {timestamp: startTime}  = await provider.getBlock('latest')
+        giveRate = getGiveRate(BigNumber.from(0))
+            
+        // 1. Normal sponsor: 500ETH
+        feswOther0 = ETHOne.mul(500).mul(giveRate)
+        await mineBlock(provider, startTime + 10)
+        await expect(sponsorContract.connect(other0).Sponsor(other0.address, { ...overrides, value: ETHOne.mul(500) } ))
+                .to.emit(Feswa,'Transfer')
+                .withArgs(sponsorContract.address, other0.address, feswOther0)
+                .to.emit(sponsorContract,'EvtSponsorReceived')
+                .withArgs(other0.address, other0.address, ETHOne.mul(500))
+        TotalSponsor = TotalSponsor.add(ETHOne.mul(500))        
+        expect(await Feswa.balanceOf(other0.address)).to.eq(feswOther0)
+
+        // 2. Normal sponsor: 499.8ETH
+        giveRate = getGiveRate(TotalSponsor)
+        await mineBlock(provider, startTime + 20)
+        await expect(sponsorContract.connect(other1).Sponsor(other1.address, { ...overrides, value: ETHOne.mul(4998).div(10) } ))
+                .to.emit(sponsorContract,'EvtSponsorReceived')
+                .withArgs(other1.address, other1.address, ETHOne.mul(4998).div(10))
+        feswOther1 = ETHOne.mul(4998).div(10).mul(giveRate)
+        TotalSponsor = TotalSponsor.add(ETHOne.mul(4998).div(10))   
+        expect(await Feswa.balanceOf(other1.address)).to.eq(feswOther1)
+
+        // 3. Sponsor to 1.6 ETH, only 1 ETH accepted
+        giveRate = getGiveRate(TotalSponsor)
+        await mineBlock(provider, startTime + 30)
+        await expect(sponsorContract.connect(other1).Sponsor(other1.address, { ...overrides, value: ETHOne.mul(16).div(10) } ))
+                .to.emit(sponsorContract,'EvtSponsorReceived')
+                .withArgs(other1.address, other1.address, ETHOne)
+
+        feswOther1 = feswOther1.add(ETHOne.mul(giveRate))
+        TotalSponsor = TotalSponsor.add(ETHOne)   
+
+        expect(await sponsorContract.CurrentGiveRate()).to.eq(giveRate)  
+        expect(await Feswa.balanceOf(other1.address)).to.eq(feswOther1)   
+        expect(await sponsorContract.TotalETHReceived()).to.eq(TotalSponsor)   
+       
+        // 4. Continue to sponsor: reverted, and sponsor cap reached 
+        await mineBlock(provider, startTime + 40)
+        await expect(sponsorContract.connect(other0).Sponsor(other0.address, { ...overrides, value: ETHOne} ))
+                .to.be.revertedWith('FESW: SPONSOR COMPLETED')
+    
+        })
+
+        it('Raising Sponsor: last Sponor could surpass 1000ETH', async () => {
+                let TotalSponsor = BigNumber.from(0)
+                let feswOther0: BigNumber
+                let feswOther1: BigNumber
+                let giveRate: BigNumber
+            
+                // Skip to start time          
+                let lastBlock  = await provider.getBlock('latest')
+                await mineBlock(provider, lastBlock.timestamp + 60 * 60)       
+                const {timestamp: startTime}  = await provider.getBlock('latest')
+                giveRate = getGiveRate(BigNumber.from(0))
+                    
+                // 1. Normal sponsor: 500ETH
+                await mineBlock(provider, startTime + 10)
+                await expect(sponsorContract.connect(other0).Sponsor(other0.address, { ...overrides, value: ETHOne.mul(500) } ))
+                        .to.emit(sponsorContract,'EvtSponsorReceived')
+                        .withArgs(other0.address, other0.address, ETHOne.mul(500))
+                feswOther0 = ETHOne.mul(500).mul(giveRate)
+                TotalSponsor = TotalSponsor.add(ETHOne.mul(500))        
+                expect(await Feswa.balanceOf(other0.address)).to.eq(feswOther0)
+            
+                // 2. Normal sponsor: 499.8ETH
+                giveRate = getGiveRate(TotalSponsor)
+                await mineBlock(provider, startTime + 20)
+                await expect(sponsorContract.connect(other1).Sponsor(other1.address, { ...overrides, value: ETHOne.mul(4998).div(10) } ))
+                        .to.emit(sponsorContract,'EvtSponsorReceived')
+                        .withArgs(other1.address, other1.address, ETHOne.mul(4998).div(10))
+                feswOther1 = ETHOne.mul(4998).div(10).mul(giveRate)
+                TotalSponsor = TotalSponsor.add(ETHOne.mul(4998).div(10))   
+                expect(await Feswa.balanceOf(other1.address)).to.eq(feswOther1)
+        
+                // 3. Sponsor to 1.6 ETH, only 1 ETH accepted
+                giveRate = getGiveRate(TotalSponsor)
+                await mineBlock(provider, startTime + 30)
+                await expect(sponsorContract.connect(other1).Sponsor(other1.address, { ...overrides, value: ETHOne.mul(6).div(10) } ))
+                        .to.emit(sponsorContract,'EvtSponsorReceived')
+                        .withArgs(other1.address, other1.address, ETHOne.mul(6).div(10) )
+                feswOther1 = feswOther1.add(ETHOne.mul(6).div(10).mul(giveRate))
+                TotalSponsor = TotalSponsor.add(ETHOne.mul(6).div(10) )   
+        
+                expect(await sponsorContract.CurrentGiveRate()).to.eq(giveRate)  
+                expect(await Feswa.balanceOf(other1.address)).to.eq(feswOther1)   
+                expect(await sponsorContract.TotalETHReceived()).to.eq(TotalSponsor)   
+               
+                // 4. Continue to sponsor: reverted, and sponsor cap reached 
+                await mineBlock(provider, startTime + 40)
+                await expect(sponsorContract.connect(other0).Sponsor(other0.address, { ...overrides, value: ETHOne} ))
+                        .to.be.revertedWith('FESW: SPONSOR COMPLETED')
+            
+        }) 
+        
 
   it('Finalize sponsor testing: Sponor raising failed', async () => {
     // Skip to start time          
@@ -183,7 +289,7 @@ describe('FeswapSponsor', () => {
     await mineBlock(provider, startTime + 10)
     let tx = await sponsorContract.connect(other1).Sponsor(other0.address, { ...overrides, value: ETHOne.mul(200) } )
     let receipt = await tx.wait()   
-    expect(receipt.gasUsed).to.eq(66839)        
+    expect(receipt.gasUsed).to.eq(66843)        
 
     // 1. Try to finalize the sponsor while it is still on going 
     await expect(sponsorContract.finalizeSponsor())
@@ -216,6 +322,7 @@ describe('FeswapSponsor', () => {
             .to.be.revertedWith('FESW: SPONSOR FINALIZED')       
   })
 
+
   it('Finalize sponsor testing: Sponor raising succeed', async () => {
     // Skip to start time          
     let lastBlock  = await provider.getBlock('latest')
@@ -227,11 +334,11 @@ describe('FeswapSponsor', () => {
             .to.emit(sponsorContract,'EvtSponsorReceived')
             .withArgs(wallet.address, other0.address, ETHOne.mul(500))
 
-    // Normal sponsor: 600ETH, sponsor target achievded, only 501 ETH accepted
+    // Normal sponsor: 600ETH, sponsor target achievded, only 500 ETH accepted
     await mineBlock(provider, startTime + 10)
     await expect(sponsorContract.Sponsor(other0.address, { ...overrides, value: ETHOne.mul(600) } ))
             .to.emit(sponsorContract,'EvtSponsorReceived')
-            .withArgs(wallet.address, other0.address, ETHOne.mul(501))
+            .withArgs(wallet.address, other0.address, ETHOne.mul(500))
 
     // 1. Only feswFund address could finalize the sponsor 
     await expect(sponsorContract.connect(other0).finalizeSponsor())

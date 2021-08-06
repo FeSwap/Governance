@@ -20,12 +20,12 @@ contract FeswSponsor {
     uint256 public constant TARGET_RAISING_ETH = 1_000e18;    
 
     // FeSwap sponsor raising cap: 1001 ETH
-    uint256 public constant CAP_RAISING_ETH = 1_000e18 + 1e18;    
+    uint256 public constant MIN_GUARANTEE_ETH = 1e18;    
 
     // Initial FESW giveaway rate per ETH: 100K FESW/ETH
     uint256 public constant INITIAL_FESW_RATE_PER_ETH = 100_000;    
 
-    // FESW giveaway change rate for total sponsored ETH
+    // FESW giveaway change rate for total sponsored ETH, corresponding granulity is 0.05ETH
     uint256 public constant FESW_CHANGE_RATE_VERSUS_ETH = 20; 
 
     // FESW sponsor raising duration: 30 days 
@@ -84,6 +84,7 @@ contract FeswSponsor {
         // calculate the giveaway rate
         uint256 feswGiveRate;
         if(block.timestamp > LastBlockTime) {
+            // granulity is 0.05 ETH
             feswGiveRate = INITIAL_FESW_RATE_PER_ETH - TotalETHReceived.mul(FESW_CHANGE_RATE_VERSUS_ETH).div(1e18);
             CurrentGiveRate = feswGiveRate;
             LastBlockTime = uint64(block.timestamp);
@@ -92,7 +93,10 @@ contract FeswSponsor {
         }
 
         // Maximum 1001 ETH accepted, extra ETH will be returned back
-        sponsorAccepted = CAP_RAISING_ETH - TotalETHReceived;
+        sponsorAccepted = TARGET_RAISING_ETH - TotalETHReceived;
+        if(sponsorAccepted < MIN_GUARANTEE_ETH){
+            sponsorAccepted = MIN_GUARANTEE_ETH;
+        }
         if (msg.value < sponsorAccepted){
             sponsorAccepted = msg.value;          
         }                                                        
@@ -119,7 +123,7 @@ contract FeswSponsor {
         require(SponsorFinalized == 0, 'FESW: SPONSOR FINALIZED');
         require(msg.sender == FeswapFund, 'FESW: NOT ALLOWED');
         require( (block.timestamp >= (SponsorStartTime + SPONSOR_DURATION)) 
-                    || (TotalETHReceived > TARGET_RAISING_ETH), 'FESW: SPONSOR ONGOING');
+                    || (TotalETHReceived >= TARGET_RAISING_ETH), 'FESW: SPONSOR ONGOING');
 
         // If sponsor raising succeeded, burning left FESW
         address to = FeswapBurner;
