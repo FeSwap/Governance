@@ -65,6 +65,7 @@ describe('StakingTwinRewardsFactory', () => {
 
     it('stores the address of stakingRewards and reward amount', async () => {
       await stakingRewardsFactory.deploy(stakingTokens[1][0].address, stakingTokens[1][1].address, 10000, REWARDS_DURATION)
+
       const [stakingTwinToken, stakingRewards, rewardAmount] = await stakingRewardsFactory.stakingRewardsInfoByStakingToken(
         stakingTokens[1][0].address
       )

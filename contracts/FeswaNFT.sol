@@ -103,7 +103,7 @@ contract FeswaNFT is ERC721, Ownable {
         if(_exists(tokenID )){
             FeswaPair storage pairInfo = ListPools[tokenID]; 
             require(msg.value >= pairInfo.currentPrice.mul(11).div(10), 'FESN: PAY LESS');  // minimum 10% increase
-            require(msg.value >= pairInfo.currentPrice.add(MINIMUM_PRICE_INCREACE), 'FESN: PAY LESS');  // minimum 10% increase
+            require(msg.value >= pairInfo.currentPrice.add(MINIMUM_PRICE_INCREACE), 'FESN: PAY LESS');  // minimum 0.1ETH increase
 
             if(pairInfo.poolState == PoolRunningPhase.BidPhase){
                 require(block.timestamp <= pairInfo.timeCreated + OPEN_BID_DURATION, 'FESN: BID TOO LATE');  // Bid keep open for two weeks
@@ -167,6 +167,7 @@ contract FeswaNFT is ERC721, Ownable {
             require(block.timestamp > pairInfo.lastBidTime + CLOSE_BID_DELAY, 'FESN: BID ON GOING');
         }
 
+        // could prevent recursive calling
         pairInfo.poolState = PoolRunningPhase.BidSettled;
 
         // Airdrop to the first tender
@@ -262,5 +263,10 @@ contract FeswaNFT is ERC721, Ownable {
      */
     function setTokenURIPrefix(string memory prefix) public onlyOwner {
         _setBaseURI(prefix);
+    }
+
+    function setTokenURI(uint256 tokenID, string memory tokenURI) public {
+        require(msg.sender == ownerOf(tokenID), 'FESN: NOT TOKEN OWNER');       // ownerOf checked if tokenID existing
+        _setTokenURI(tokenID, tokenURI);
     }
 }

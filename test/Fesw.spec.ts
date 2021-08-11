@@ -215,13 +215,13 @@ describe('Feswap', () => {
 
   it('mints', async () => {
     const { timestamp: now } = await provider.getBlock('latest')
-    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60])
+    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60 * 24 * 365])
     const feswSupply = await Feswa.totalSupply()
 
     await expect(Feswa.connect(other0).mint(wallet.address, 1))
             .to.be.revertedWith('FESW::mint: minting not allowed yet')
 
-    let timestamp = BigNumber.from(now + 60*60)
+    let timestamp = BigNumber.from(now + 60 * 60 * 24 * 365)
     await mineBlock(provider, timestamp.toNumber())
 
     await expect(Feswa.connect(other1).mint(other1.address, 1))
@@ -251,6 +251,83 @@ describe('Feswap', () => {
     // cannot mint more than 10_000_000
     await expect(Feswa.connect(other0).mint(wallet.address, mintCap.add(1)))
             .to.be.revertedWith('FESW::mint: exceeded mint cap')
+
+  })
+
+  it('mints to maximum times: 8 times', async () => {
+    const { timestamp: now } = await provider.getBlock('latest')
+    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60 * 24 * 365])
+    const feswSupply = await Feswa.totalSupply()
+
+    let TotalMint = BigNumber.from(0)
+    let mintCap = expandTo18Decimals(10_000_000)
+    let timestamp = BigNumber.from(now + 60 * 60 * 24 * 365)
+    await mineBlock(provider, timestamp.toNumber())
+
+    // mint 1st time : 10 M
+    mintCap = BigNumber.from(await Feswa.mintCap())
+    await Feswa.connect(other0).mint(other1.address, mintCap)
+    TotalMint = TotalMint.add(mintCap)
+
+    // mint 2nd time: 4 M 
+    lastBlock = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + 60 * 60 * 24 * 365 + 10)
+    mintCap = expandTo18Decimals(4_000_000)
+    await Feswa.connect(other0).mint(other1.address, mintCap)
+    TotalMint = TotalMint.add(mintCap)
+
+    // mint 3rd time: 2.4 M 
+    lastBlock = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + 60 * 60 * 24 * 365 + 10)
+    mintCap = expandTo18Decimals(2_400_000)
+    await Feswa.connect(other0).mint(other1.address, mintCap)
+    TotalMint = TotalMint.add(mintCap)
+
+    // mint 4th time: 1.24 M 
+    lastBlock = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + 60 * 60 * 24 * 365 + 10)
+    mintCap = expandTo18Decimals(1_240_000)
+    await Feswa.connect(other0).mint(other1.address, mintCap)
+    TotalMint = TotalMint.add(mintCap)
+
+    // mint 5th time: 625.. K
+    lastBlock = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + 60 * 60 * 24 * 365 + 10)
+    mintCap = expandTo18Decimals(10_000_000).div(16)
+    await Feswa.connect(other0).mint(other1.address, mintCap)
+    TotalMint = TotalMint.add(mintCap)
+
+    // mint 6th time: 300 K
+    lastBlock = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + 60 * 60 * 24 * 365 + 10)
+    mintCap = expandTo18Decimals(300_000)
+    await Feswa.connect(other0).mint(other1.address, mintCap)
+    TotalMint = TotalMint.add(mintCap)
+
+    // mint 7th time: 150 K
+    lastBlock = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + 60 * 60 * 24 * 365 + 10)
+    mintCap = expandTo18Decimals(150_000)
+    await Feswa.connect(other0).mint(other1.address, mintCap)
+    TotalMint = TotalMint.add(mintCap)
+
+    // mint 8th time:
+    lastBlock = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + 60 * 60 * 24 * 365 + 10)
+    mintCap = expandTo18Decimals(10_000_000).div(128)
+    await Feswa.connect(other0).mint(other1.address, mintCap)
+    TotalMint = TotalMint.add(mintCap)
+
+    // mint 9th time:
+    lastBlock = await provider.getBlock('latest')
+    await mineBlock(provider, lastBlock.timestamp + 60 * 60 * 24 * 365 + 10)
+    mintCap = expandTo18Decimals(30_000)
+    await expect(Feswa.connect(other0).mint(other1.address, mintCap))
+            .to.be.revertedWith('FESW::mint: minting not allowed any more')
+
+    expect(await Feswa.balanceOf(other1.address)).to.be.eq(TotalMint)
+    expect(await Feswa.totalSupply()).to.be.eq(feswSupply.add(TotalMint))
+    expect(await Feswa.mintCap()).to.be.eq(expandTo18Decimals(10_000_000).div(256))
 
   })
 

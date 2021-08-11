@@ -32,18 +32,6 @@ contract FeswGovernor {
     /// @notice The total number of proposals
     uint public proposalCount;
 
-    /// @notice Ballot receipt record for a voter
-    struct Receipt {
-        // Whether or not a vote has been cast
-        bool hasVoted;
-
-        // Whether or not the voter supports the proposal
-        bool support;
-
-        // The number of votes the voter had, which were cast
-        uint96 votes;
-    }
-
     struct Proposal {
         // Unique id for looking up a proposal
         uint id;
@@ -84,6 +72,18 @@ contract FeswGovernor {
 
         // Flag marking whether the proposal has been executed
         bool executed;
+    }
+    
+    /// @notice Ballot receipt record for a voter
+    struct Receipt {
+        // Whether or not a vote has been cast
+        bool hasVoted;
+
+        // Whether or not the voter supports the proposal
+        bool support;
+
+        // The number of votes the voter had, which were cast
+        uint96 votes;
     }
 
     /// @notice Possible states that a proposal may be in

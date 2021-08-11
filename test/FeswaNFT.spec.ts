@@ -1007,7 +1007,20 @@ describe('FeswaPairForSale', () => {
     it('IERC721Metadata: tokenURI()', async () => {
       expect(await FeswaNFT.tokenURI(tokenIDMatchAB)).to.be.eq('')    
       expect(await FeswaNFT.tokenURI(tokenIDMatchAC)).to.be.eq('')    
-      expect(await FeswaNFT.tokenURI(tokenIDMatchBC)).to.be.eq('')    
+      expect(await FeswaNFT.tokenURI(tokenIDMatchBC)).to.be.eq('')  
+
+      await FeswaNFT.setTokenURIPrefix('https://www.feswao.io')
+      expect(await FeswaNFT.tokenURI(tokenIDMatchAB)).to.be.eq('https://www.feswao.io'+ BigNumber.from(tokenIDMatchAB).toString())    
+      await FeswaNFT.setTokenURI(tokenIDMatchAB, 'Test NFT AB')
+      expect(await FeswaNFT.tokenURI(tokenIDMatchAB)).to.be.eq('https://www.feswao.io'+'Test NFT AB')    
+    })
+
+    it('IERC721Metadata: tokenURI(): No Base', async () => {
+      expect(await FeswaNFT.tokenURI(tokenIDMatchAB)).to.be.eq('')    
+      await FeswaNFT.setTokenURI(tokenIDMatchAB, 'Test NFT AB')
+      expect(await FeswaNFT.tokenURI(tokenIDMatchAB)).to.be.eq('Test NFT AB') 
+      await FeswaNFT.setTokenURIPrefix('https://www.feswao.io')
+      expect(await FeswaNFT.tokenURI(tokenIDMatchAB)).to.be.eq('https://www.feswao.io'+'Test NFT AB')    
     })
     
     it('IERC165: supportsInterface()', async () => {

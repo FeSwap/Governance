@@ -88,6 +88,41 @@ describe('StakingTwinRewards', () => {
   
   })
 
+
+  it('withdraw', async () => {
+    // stake with staker
+    const stakeA = expandTo18Decimals(2)
+    await stakingTokenA.transfer(staker.address, stakeA)
+    await stakingTokenA.connect(staker).approve(stakingRewards.address, stakeA)
+
+    const stakeB = expandTo18Decimals(2)
+    await stakingTokenB.transfer(staker.address, stakeB)
+    await stakingTokenB.connect(staker).approve(stakingRewards.address, stakeB)
+
+    await stakingRewards.connect(staker).stake(stakeA, stakeB)
+    const { endTime } = await start(reward)
+    
+    // fast-forward past the reward window
+    await mineBlock(provider, endTime.add(1).toNumber())
+
+    // with normal
+    await stakingRewards.connect(staker).withdraw(stakeA.div(2), stakeB.div(2))
+
+    // with underflow
+    await expect(stakingRewards.connect(staker).withdraw(stakeA.div(2).add(stakeA.div(100)), 0))
+            .to.be.revertedWith('SafeMath: subtraction overflow')
+
+    // unstake
+    await stakingRewards.connect(staker).exit()
+    const stakeEndTime: BigNumber = await stakingRewards.lastUpdateTime()
+    expect(stakeEndTime).to.be.eq(endTime)
+
+    const rewardAmount = await rewardsToken.balanceOf(staker.address)
+    expect(reward.sub(rewardAmount).lte(reward.div(10000))).to.be.true // ensure result is within .01%
+    expect(rewardAmount).to.be.eq(reward.div(REWARDS_DURATION).mul(REWARDS_DURATION))
+  
+  })
+
   it('stakeWithPermit', async () => {
     // stake with staker
     const stakeA = expandTo18Decimals(2)
@@ -118,7 +153,6 @@ describe('StakingTwinRewards', () => {
       deadline1
     )
     const { v:v1, r:r1, s:s1} = ecsign(Buffer.from(digest1.slice(2), 'hex'), Buffer.from(staker.privateKey.slice(2), 'hex'))
-
 
     await stakingRewards.connect(staker).stakeWithPermit([stakeA, deadline0, v0, r0, s0], [stakeB, deadline1, v1, r1, s1])
 

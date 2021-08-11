@@ -27,7 +27,7 @@ contract Fesw {
     uint32 public constant minimumTimeBetweenMints = 1 days * 365;
 
     /// @notice Cap that can be minted at each mint after 5 years
-    uint public constant mintCap = 10_000_000e18;      // 10 million FESW
+    uint public mintCap = 10_000_000e18;      // 10 million FESW
 
     // @notice Allowance amounts on behalf of others
     // Documentation tag @notice not valid for non-public state variables
@@ -113,6 +113,8 @@ contract Fesw {
         require(msg.sender == minterBurner, "FESW::mint: only the minter can mint");
         require(block.timestamp >= mintingAllowedAfter, "FESW::mint: minting not allowed yet");
         require(dst != address(0), "FESW::mint: cannot transfer to the zero address");
+        //maximum 8 times minting
+        require(mintCap >= 50_000e18, "FESW::mint: minting not allowed any more");   
 
         // record the mint
         mintingAllowedAfter = SafeMath.add(block.timestamp, minimumTimeBetweenMints);
@@ -120,6 +122,7 @@ contract Fesw {
         // mint the amount
         uint96 amount = safe96(rawAmount, "FESW::mint: amount exceeds 96 bits");
         require(amount <= mintCap, "FESW::mint: exceeded mint cap");
+        mintCap = mintCap / 2;
         totalSupply = safe96(SafeMath.add(totalSupply, amount), "FESW::mint: totalSupply exceeds 96 bits");
 
         // transfer the amount to the recipient
