@@ -1,6 +1,6 @@
 {
     "name": "@feswap/governance",
-    "version": "1.1.2",
+    "version": "1.2.0",
     "description": "🌈 Governance contracts for the FeSwap decentralized exchange",
     "author": "Derik Lu",
     "license": "GPL-3.0-or-later",
