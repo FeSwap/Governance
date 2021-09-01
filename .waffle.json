@@ -10,6 +10,7 @@
           "evm.deployedBytecode.object",
           "abi",
           "evm.bytecode.sourceMap",
+          "evm.bytecode.opcodes",
           "evm.deployedBytecode.sourceMap",
           "metadata"
         ],
