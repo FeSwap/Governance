@@ -17,7 +17,7 @@ describe('scenario:setFeeTo', () => {
       gasLimit: 9999999,
     },
   })
-  const [wallet] = provider.getWallets()
+  const [wallet, other, NFTSimu] = provider.getWallets()
   const loadFixture = createFixtureLoader([wallet], provider)
 
   let Feswa: Contract
@@ -32,7 +32,7 @@ describe('scenario:setFeeTo', () => {
 
   let factory: Contract
   beforeEach('deploy FeSwap', async () => {
-    factory = await deployContract(wallet, FeswapFactory, [timelock.address])
+    factory = await deployContract(wallet, FeswapFactory, [timelock.address, other.address, NFTSimu.address])
   })
 
   it('setFeeTo', async () => {

@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.7.0;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.7.5;
 
 // this contract serves as feeToSetter, allowing owner to manage fees in the context of a specific feeTo implementation
 contract FeeToSetter {

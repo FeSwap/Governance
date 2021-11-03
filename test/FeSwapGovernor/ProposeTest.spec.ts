@@ -92,21 +92,21 @@ describe('GovernorAlpha_Propose', () => {
   describe("This function must revert if", () => {
     it("the length of the values, signatures or calldatas arrays are not the same length,", async () => {
       await expect(feswGovernor.propose(targets.concat(other0.address), values, signatures, callDatas, "do nothing"))
-              .to.be.revertedWith("revert FeswGovernor::propose: proposal function information arity mismatch");
+              .to.be.revertedWith("FeswGovernor::propose: proposal function information arity mismatch");
 
       await expect(feswGovernor.propose(targets, values.concat(values), signatures, callDatas, "do nothing"))
-              .to.be.revertedWith("revert FeswGovernor::propose: proposal function information arity mismatch");
+              .to.be.revertedWith("FeswGovernor::propose: proposal function information arity mismatch");
 
       await expect(feswGovernor.propose(targets, values, signatures.concat(signatures), callDatas, "do nothing"))
-              .to.be.revertedWith("revert FeswGovernor::propose: proposal function information arity mismatch");
+              .to.be.revertedWith("FeswGovernor::propose: proposal function information arity mismatch");
 
       await expect(feswGovernor.propose(targets, values, signatures, callDatas.concat(callDatas), "do nothing"))
-              .to.be.revertedWith("revert FeswGovernor::propose: proposal function information arity mismatch");
+              .to.be.revertedWith("FeswGovernor::propose: proposal function information arity mismatch");
     });
 
     it("or if that length is zero or greater than Max Operations.", async () => {
       await expect(feswGovernor.propose([], [], [], [], "do nothing"))
-        .to.be.revertedWith("revert FeswGovernor::propose: must provide actions");
+        .to.be.revertedWith("FeswGovernor::propose: must provide actions");
     });
 
     describe("Additionally, if there exists a pending or active proposal from the same proposer, we must revert.", () => {

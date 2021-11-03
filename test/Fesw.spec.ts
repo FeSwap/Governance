@@ -52,7 +52,7 @@ describe('Feswap', () => {
   it('name, symbol, decimals, totalSupply, balanceOf, nonces, DOMAIN_SEPARATOR, PERMIT_TYPEHASH', async () => {
     const name = await Feswa.name()
     expect(name).to.eq('FeSwap DAO')
-    expect(await Feswa.symbol()).to.eq('FESW')
+    expect(await Feswa.symbol()).to.eq('FESW-B')
     expect(await Feswa.decimals()).to.eq(18)
     expect(await Feswa.totalSupply()).to.eq(TOTAL_SUPPLY)
     expect(await Feswa.balanceOf(wallet.address)).to.eq(TOTAL_SUPPLY)
@@ -175,13 +175,13 @@ describe('Feswap', () => {
     let currentVotes0 = await Feswa.getCurrentVotes(other0.address)
     expect(currentVotes0).to.be.eq(expandTo18Decimals(0))
     let receipt = await tx.wait()   
-    expect(receipt.gasUsed).to.eq(55100)       
+    expect(receipt.gasUsed).to.eq(55095)       
 
     tx = await Feswa.connect(other0).transfer(other1.address, expandTo18Decimals(50))
     let currentVotes1 = await Feswa.getCurrentVotes(other1.address)
     expect(currentVotes1).to.be.eq(expandTo18Decimals(0))
     receipt = await tx.wait()   
-    expect(receipt.gasUsed).to.eq(55100)        
+    expect(receipt.gasUsed).to.eq(55095)        
   })
 
   it('nested delegation', async () => {
@@ -195,7 +195,7 @@ describe('Feswap', () => {
 
     let tx = await Feswa.connect(other0).delegate(other1.address)
     let receipt = await tx.wait()   
-    expect(receipt.gasUsed).to.eq(90922)  
+    expect(receipt.gasUsed).to.eq(90917)  
 
     currentVotes1 = await Feswa.getCurrentVotes(other1.address)
     expect(currentVotes1).to.be.eq(expandTo18Decimals(1))
@@ -215,7 +215,7 @@ describe('Feswap', () => {
 
   it('mints', async () => {
     const { timestamp: now } = await provider.getBlock('latest')
-    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60 * 24 * 365])
+    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60 * 24 * 365, 'FESW-B'])
     const feswSupply = await Feswa.totalSupply()
 
     await expect(Feswa.connect(other0).mint(wallet.address, 1))
@@ -256,7 +256,7 @@ describe('Feswap', () => {
 
   it('mints to maximum times: 8 times', async () => {
     const { timestamp: now } = await provider.getBlock('latest')
-    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60 * 24 * 365])
+    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60 * 24 * 365, 'FESW-B'])
     const feswSupply = await Feswa.totalSupply()
 
     let TotalMint = BigNumber.from(0)
@@ -333,13 +333,13 @@ describe('Feswap', () => {
 
   it('burn', async () => {
     const { timestamp: now } = await provider.getBlock('latest')
-    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60])
+    const Feswa = await deployContract(wallet, FeswapByteCode, [wallet.address, other0.address, now + 60 * 60, 'FESW-B'])
 
     await expect(Feswa.connect(other1).burn())
             .to.be.revertedWith('FESW::burn: Only the burner can burn')
 
     await expect(Feswa.connect(other0).burn())
-            .to.be.revertedWith(' FESW::burn: No FESW token to burn')
+            .to.be.revertedWith('FESW::burn: No FESW token to burn')
 
     // prepare to burn 1000 FESW     
     await Feswa.transfer(other1.address, expandTo18Decimals(1000))

@@ -22,7 +22,7 @@ describe('StakingTwinRewardsFactory', () => {
     },
   })
   const [wallet, wallet1] = provider.getWallets()
-  const loadFixture = createFixtureLoader([wallet], provider)
+  const loadFixture = createFixtureLoader([wallet, wallet1], provider)
 
   let rewardsToken: Contract
   let genesis: number
@@ -41,48 +41,48 @@ describe('StakingTwinRewardsFactory', () => {
 
   it('deployment gas', async () => {
     const receipt = await provider.getTransactionReceipt(stakingRewardsFactory.deployTransaction.hash)
-    expect(receipt.gasUsed).to.eq('2634459')          // 2465994, 2155113
+    expect(receipt.gasUsed).to.eq('2654641')          // 2654629 2654641 2634459, 2465994, 2155113
   })
 
   describe('#deploy', () => {
     it('pushes the token into the list', async () => {
-      await stakingRewardsFactory.deploy(stakingTokens[1][0].address, stakingTokens[1][1].address, 10000, REWARDS_DURATION)
-      expect(await stakingRewardsFactory.stakingTokens(0)).to.eq(stakingTokens[1][0].address)
+      await stakingRewardsFactory.deploy(stakingTokens[1][0], stakingTokens[1][1], 10000, REWARDS_DURATION)
+      expect(await stakingRewardsFactory.stakingTokens(0)).to.eq(stakingTokens[1][0])
     })
 
     it('fails if called twice for same token', async () => {
-      await stakingRewardsFactory.deploy(stakingTokens[1][0].address, stakingTokens[1][1].address, 10000, REWARDS_DURATION)
-      await expect(stakingRewardsFactory.deploy(stakingTokens[1][0].address, stakingTokens[1][1].address, 10000, REWARDS_DURATION)).to.revertedWith(
+      await stakingRewardsFactory.deploy(stakingTokens[1][0], stakingTokens[1][1], 10000, REWARDS_DURATION)
+      await expect(stakingRewardsFactory.deploy(stakingTokens[1][0], stakingTokens[1][1], 10000, REWARDS_DURATION)).to.revertedWith(
         'StakingRewardsFactory::deploy: already deployed'
       )
     })
 
     it('can only be called by the owner', async () => {
-      await expect(stakingRewardsFactory.connect(wallet1).deploy(stakingTokens[1][0].address, stakingTokens[1][1].address, 10000, REWARDS_DURATION)).to.be.revertedWith(
+      await expect(stakingRewardsFactory.connect(wallet1).deploy(stakingTokens[1][0], stakingTokens[1][1], 10000, REWARDS_DURATION)).to.be.revertedWith(
         'Ownable: caller is not the owner'
       )
     })
 
     it('stores the address of stakingRewards and reward amount', async () => {
-      await stakingRewardsFactory.deploy(stakingTokens[1][0].address, stakingTokens[1][1].address, 10000, REWARDS_DURATION)
+      await stakingRewardsFactory.deploy(stakingTokens[1][0], stakingTokens[1][1], 10000, REWARDS_DURATION)
 
       const [stakingTwinToken, stakingRewards, rewardAmount] = await stakingRewardsFactory.stakingRewardsInfoByStakingToken(
-        stakingTokens[1][0].address
+        stakingTokens[1][0]
       )
       expect(await provider.getCode(stakingRewards)).to.not.eq('0x')
-      expect(stakingTwinToken).to.eq(stakingTokens[1][1].address)
+      expect(stakingTwinToken).to.eq(stakingTokens[1][1])
       expect(rewardAmount).to.eq(10000)
     })
 
     it('deployed staking rewards has correct parameters', async () => {
-      await stakingRewardsFactory.deploy(stakingTokens[1][0].address, stakingTokens[1][1].address, 10000, REWARDS_DURATION)
+      await stakingRewardsFactory.deploy(stakingTokens[1][0], stakingTokens[1][1], 10000, REWARDS_DURATION)
       const [,stakingRewardsAddress] = await stakingRewardsFactory.stakingRewardsInfoByStakingToken(
-        stakingTokens[1][0].address
+        stakingTokens[1][0]
       )
       const stakingRewards = new Contract(stakingRewardsAddress, StakingRewards.abi, provider)
       expect(await stakingRewards.rewardsDistribution()).to.eq(stakingRewardsFactory.address)
-      expect(await stakingRewards.stakingTokenA()).to.eq(stakingTokens[1][0].address)
-      expect(await stakingRewards.stakingTokenB()).to.eq(stakingTokens[1][1].address)
+      expect(await stakingRewards.stakingTokenA()).to.eq(stakingTokens[1][0])
+      expect(await stakingRewards.stakingTokenB()).to.eq(stakingTokens[1][1])
       expect(await stakingRewards.rewardsToken()).to.eq(rewardsToken.address)
     })
   })
@@ -105,9 +105,9 @@ describe('StakingTwinRewardsFactory', () => {
       beforeEach('deploy staking reward contracts', async () => {
         stakingRewards = []
         for (let i = 0; i < stakingTokens.length; i++) {
-          await stakingRewardsFactory.deploy(stakingTokens[i][0].address, stakingTokens[i][1].address, rewardAmounts[i], REWARDS_DURATION)
+          await stakingRewardsFactory.deploy(stakingTokens[i][0], stakingTokens[i][1], rewardAmounts[i], REWARDS_DURATION)
           const [, stakingRewardsAddress] = await stakingRewardsFactory.stakingRewardsInfoByStakingToken(
-            stakingTokens[i][0].address
+            stakingTokens[i][0]
           )
           stakingRewards.push(new Contract(stakingRewardsAddress, StakingRewards.abi, provider))
         }
@@ -118,7 +118,7 @@ describe('StakingTwinRewardsFactory', () => {
         await mineBlock(provider, genesis)
         const tx = await stakingRewardsFactory.notifyRewardAmounts()
         const receipt = await tx.wait()
-        expect(receipt.gasUsed).to.eq('496023')       // 416559, 416215
+        expect(receipt.gasUsed).to.eq('512851')       // 512851 496023 416559, 416215
       })
 
       it('no op if called twice', async () => {
@@ -131,7 +131,7 @@ describe('StakingTwinRewardsFactory', () => {
       it('fails if called without sufficient balance', async () => {
         await mineBlock(provider, genesis)
         await expect(stakingRewardsFactory.notifyRewardAmounts()).to.be.revertedWith(
-          'ERC20: transfer amount exceeds balance' // emitted from rewards token:  SafeMath: subtraction overflow
+          'FESW::_transferTokens: transfer amount exceeds balance' // emitted from rewards token:  SafeMath: subtraction overflow
         )
       })
 
@@ -162,12 +162,12 @@ describe('StakingTwinRewardsFactory', () => {
         await rewardsToken.transfer(stakingRewardsFactory.address, totalRewardAmount)
         await mineBlock(provider, genesis)
         for (let i = 0; i < stakingTokens.length; i++) {
-          const [, , amount] = await stakingRewardsFactory.stakingRewardsInfoByStakingToken(stakingTokens[i][0].address)
+          const [, , amount] = await stakingRewardsFactory.stakingRewardsInfoByStakingToken(stakingTokens[i][0])
           expect(amount).to.eq(rewardAmounts[i])
         }
         await stakingRewardsFactory.notifyRewardAmounts()
         for (let i = 0; i < stakingTokens.length; i++) {
-          const [, , amount] = await stakingRewardsFactory.stakingRewardsInfoByStakingToken(stakingTokens[i][0].address)
+          const [, , amount] = await stakingRewardsFactory.stakingRewardsInfoByStakingToken(stakingTokens[i][0])
           expect(amount).to.eq(0)
         }
       })
@@ -179,7 +179,7 @@ describe('StakingTwinRewardsFactory', () => {
 
         // refill
         for (let i = 0; i < stakingTokens.length; i++) {
-          await stakingRewardsFactory.deploy(stakingTokens[i][0].address, stakingTokens[i][1].address, rewardAmounts[i], REWARDS_DURATION)
+          await stakingRewardsFactory.deploy(stakingTokens[i][0], stakingTokens[i][1], rewardAmounts[i], REWARDS_DURATION)
         }
 
         await rewardsToken.transfer(stakingRewardsFactory.address, totalRewardAmount)

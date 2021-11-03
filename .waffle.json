@@ -12,6 +12,8 @@
           "evm.bytecode.sourceMap",
           "evm.bytecode.opcodes",
           "evm.deployedBytecode.sourceMap",
+          "evm.assembly", 
+          "storageLayout",
           "metadata"
         ],
         "": ["ast"]

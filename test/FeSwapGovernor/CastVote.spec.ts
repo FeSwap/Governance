@@ -182,7 +182,7 @@ describe('castVote', () => {
       const castVoteBySigTrx = await feswGovernor.castVoteBySig(proposalId, true, v, r, s)
 
       const receipt = await castVoteBySigTrx.wait()
-      expect(receipt.gasUsed).to.eq(82933)    // 82868
+      expect(receipt.gasUsed).to.eq("82928")    // 82916 82868
 
       let afterFors = await feswGovernor.proposals(proposalId)
       expect(afterFors.forVotes).to.be.equal(beforeFors.forVotes.add(expandTo18Decimals(40_000_001)))

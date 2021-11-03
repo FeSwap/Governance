@@ -3,8 +3,6 @@ import { Contract, constants, utils} from 'ethers'
 
 import { solidity, MockProvider, createFixtureLoader, deployContract } from 'ethereum-waffle'
 
-import FeswapFactory from '../Feswap/FeswapFactory.json'
-import FeSwapRouter from '../Feswap/FeSwapRouter.json'
 import FeSwapPair from '../Feswap/FeSwapPair.json'
 import FeeToSetter from '../../build/FeeToSetter.json'
 import FeeTo from '../../build/FeeTo.json'
@@ -36,20 +34,15 @@ describe('scenario:FeeTo', () => {
 
   let Feswa: Contract
   let FeswaNFT: Contract
+  let factory: Contract
+  let router: Contract
 
   beforeEach('load fixture', async () => {
     const fixture = await loadFixture(FeswaNFTFixture)
     Feswa = fixture.Feswa
     FeswaNFT = fixture.FeswaNFT
-  })
-
-
-  let factory: Contract
-  let router: Contract
-
-  beforeEach('deploy Feswap', async () => {
-    factory = await deployContract(wallet, FeswapFactory, [wallet.address])
-    router = await deployContract(wallet, FeSwapRouter, [factory.address, FeswaNFT.address, other0.address])   // other0 is fake WETH
+    factory = fixture.Factory
+    router = fixture.Router
   })
 
   let feeToSetter: Contract
@@ -89,6 +82,9 @@ describe('scenario:FeeTo', () => {
   describe('tokens', () => {
     const tokens: Contract[] = []
     let  tokenIDMatch: any
+    let pairAAB: Contract
+    const rateTriggerArbitrage: number = 10
+
     beforeEach('make test tokens', async () => {
       const { timestamp: now } = await provider.getBlock('latest')
       const token0 = await deployContract(wallet, FeswapToken, [wallet.address, constants.AddressZero, now + 60 * 60])
@@ -109,20 +105,18 @@ describe('scenario:FeeTo', () => {
       // BidDelaying time out
       lastBlock = await provider.getBlock('latest')
       await mineBlock(provider, lastBlock.timestamp + OPEN_BID_DURATION + 1 ) 
-      await FeswaNFT.connect(other1).FeswaPairSettle(tokenIDMatch)
+      await FeswaNFT.connect(other1).ManageFeswaPair(tokenIDMatch, other1.address, rateTriggerArbitrage, 0)
     })
 
-    let pairAAB: Contract
-    const rateTriggerArbitrage: number = 10
     beforeEach('create fee liquidity', async () => {
       // turn the fee on
       await mineBlock(provider, vestingEnd + 10)
       await feeToSetter.toggleFees(true)
 
       // create the pair
-      await router.connect(other1).ManageFeswaPair(tokenIDMatch, other1.address, rateTriggerArbitrage)
+      await FeswaNFT.connect(other1).ManageFeswaPair(tokenIDMatch, other1.address, rateTriggerArbitrage, 0)
 
-      const pairAddressAAB = await factory.getPair(tokens[0].address, tokens[1].address)
+      const [pairAddressAAB, ] = await factory.getPair(tokens[0].address, tokens[1].address)
       pairAAB = new Contract(pairAddressAAB, FeSwapPair.abi).connect(wallet)
     
       // add liquidity
@@ -138,8 +132,8 @@ describe('scenario:FeeTo', () => {
       // mint again to collect the rewards
       await tokens[0].transfer(pairAAB.address, expandTo18Decimals(1))
       await tokens[1].transfer(pairAAB.address, expandTo18Decimals(1))
+
       await pairAAB.mint(wallet.address, { gasLimit: 9999999 })
-  
     })
 
     it('updateTokenAllowState', async () => {

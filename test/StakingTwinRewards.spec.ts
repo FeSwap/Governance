@@ -41,7 +41,7 @@ describe('StakingTwinRewards', () => {
       stakingTokenB.address,
     ])
     const receipt = await provider.getTransactionReceipt(stakingRewards.deployTransaction.hash)
-    expect(receipt.gasUsed).to.eq('1648727')          // 1467786
+    expect(receipt.gasUsed).to.eq('1669251')          // 1648727
   })
 
   it('rewardsDuration', async () => {

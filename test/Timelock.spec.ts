@@ -7,7 +7,6 @@ import { Block } from "@ethersproject/abstract-provider";
 import { governanceFixture } from './shares/fixtures'
 import { expandTo18Decimals, mineBlock, encodeParameters, DELAY, GRACE_PERIOD } from './shares/utils'
 import Timelock from '../build/TimelockHarness.json'
-import FeswapByteCode from '../build/Fesw.json'
 
 chai.use(solidity)
 

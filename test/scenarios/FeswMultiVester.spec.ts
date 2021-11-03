@@ -41,7 +41,7 @@ describe('scenario:FeswMultiVester', () => {
     ])
 
     const receipt = await provider.getTransactionReceipt(FeswVester.deployTransaction.hash)
-    expect(receipt.gasUsed).to.eq('982324')          
+    expect(receipt.gasUsed).to.eq('982336')     // 982324     
 
     // fund the treasury
     await Feswa.transfer(FeswVester.address, vestingAmount)
@@ -105,7 +105,7 @@ describe('scenario:FeswMultiVester', () => {
     it('deployVeste failed: Transfer error', async () => {
       const tx = await FeswVester.deployVester(vestingAmount.mul(2), vestingBegin, vestingCliff, vestingEnd)
       const receipt = await tx.wait()
-      expect(receipt.gasUsed).to.eq('51098') 
+      expect(receipt.gasUsed).to.eq('51098')      // 51098 51086
       {
         const claimTime = vestingBegin + Math.floor((vestingEnd - vestingBegin) / 3)
         await mineBlock(provider, claimTime)
@@ -115,7 +115,7 @@ describe('scenario:FeswMultiVester', () => {
         const claimTime = vestingBegin + Math.floor((vestingEnd - vestingBegin) *5 / 6)
         const vesterinfo = await FeswVester.allVesters(0)
         await mineBlock(provider, claimTime)
-        await expect(FeswVester.claim()).to.be.revertedWith('FESW::_transferTokens')
+        await expect(FeswVester.claim()).to.be.revertedWith('FESW::_transferTokens: transfer amount exceeds balance')
         expect(await await FeswVester.allVesters(0)).to.eqls(vesterinfo)
       }
     })
@@ -137,7 +137,7 @@ describe('scenario:FeswMultiVester', () => {
         await mineBlock(provider, claimTime)
         const tx = await FeswVester.claim()
         const receipt = await tx.wait()
-        expect(receipt.gasUsed).to.eq('68293')          
+        expect(receipt.gasUsed).to.eq('68288')        // 68310 68288 68293      
 
         const vesterinfo = await FeswVester.allVesters(0)
         expect(vesterinfo['lastClaimTime']).to.gte(claimTime)

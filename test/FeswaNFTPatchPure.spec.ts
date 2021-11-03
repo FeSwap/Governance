@@ -2,11 +2,13 @@ import chai, { expect } from 'chai'
 import { Contract, BigNumber, constants, utils } from 'ethers'
 import { solidity, MockProvider, createFixtureLoader, deployContract } from 'ethereum-waffle'
 
-import { FeswaNFTFixture } from './shares/fixtures'
+import { FeswaNFTFixturePatch } from './shares/fixtures'
 import { expandTo18Decimals, mineBlock } from './shares/utils'
 import { Block } from "@ethersproject/abstract-provider";
 import TestERC20 from '../build/TestERC20.json'
 import FeSwapPair from './Feswap/FeSwapPair.json'
+import FeswaNFTCode from '../build/FeswaNFT.json'
+import FeswaNFTPatchPureCode from '../build/FeswaNFTPatchPure.json'
 import DestroyControllerABI from '../build/DestroyController.json'
 
 chai.use(solidity)
@@ -56,14 +58,26 @@ describe('FeswaNFT', () => {
   let Feswa: Contract
   let Factory: Contract
   let FeswaNFT: Contract
+  let MetamorphicFactory: Contract
 
   beforeEach('load fixture', async () => {
-    const fixture = await loadFixture(FeswaNFTFixture)
+    const fixture = await loadFixture(FeswaNFTFixturePatch)
     TokenA = fixture.TokenA
     TokenB = fixture.TokenB
     Feswa = fixture.Feswa
     Factory = fixture.Factory
-    FeswaNFT = fixture.FeswaNFT
+    MetamorphicFactory = fixture.MetamorphicFactory
+
+    FeswaNFT =  new Contract(fixture.FeswaNFT.address, JSON.stringify(FeswaNFTCode.abi), wallet) 
+
+    // deploy FeSwap NFT Patch implementation 
+    const NFTPatchImplementation = await deployContract(wallet, FeswaNFTPatchPureCode)
+    const salt = "0x291AD4D300CBA1259F2807167DE059F45F0EA7EDC76A99BE5290E88E498EC62B"
+    const metaMorphicContractAddress = await MetamorphicFactory.findMetamorphicContractAddress(salt)
+    const metaMorphicContract = new Contract(metaMorphicContractAddress, JSON.stringify(DestroyControllerABI.abi), wallet) 
+    await metaMorphicContract.connect(other0).destroy(wallet.address)
+    await MetamorphicFactory.deployMetamorphicContract(salt, NFTPatchImplementation.address, "0x", { ...overrides, value: 0 })
+
   })
 
   /*
@@ -73,27 +87,22 @@ describe('FeswaNFT', () => {
   })
 */
 
-/*
-  // for NFT not patchable
-  it(' ETH Receive and fallback test with no activated patch', async () => {
-    await expect(wallet.sendTransaction({to: FeswaNFT.address, value: expandTo18Decimals(1) }))
-            .to.be.reverted
-
+  it('Beacon destroyable and re-deploy', async () => {
+    const salt = "0x291AD4D300CBA1259F2807167DE059F45F0EA7EDC76A99BE5290E88E498EC62B"
+    const metaMorphicContractAddress = await MetamorphicFactory.findMetamorphicContractAddress(salt)
+    console.log( "MetamorphicFactory: ", MetamorphicFactory.address)
+    console.log( "metaMorphicAddress: ", metaMorphicContractAddress)
+    console.log( "FeswaNFT: ", FeswaNFT.address)
+    
     let metaMorphicContract 
     metaMorphicContract = new Contract(FeswaNFT.address, JSON.stringify(DestroyControllerABI.abi), wallet) 
     await expect(metaMorphicContract.connect(other0).destroy(wallet.address))
-            .to.be.reverted
-  })
-*/
+            .to.be.revertedWith('Root not destroyable!')
 
-  it(' ETH Receive and fallback test with no activated patch', async () => {
-    await expect(wallet.sendTransaction({to: FeswaNFT.address, value: expandTo18Decimals(1) }))
-            .to.be.revertedWith('Refused!')
-
-    let metaMorphicContract 
-    metaMorphicContract = new Contract(FeswaNFT.address, JSON.stringify(DestroyControllerABI.abi), wallet) 
-
-    // even the ABI does not exist, delegatecall still return success, while NFT is still existing
+    metaMorphicContract = new Contract(metaMorphicContractAddress, JSON.stringify(DestroyControllerABI.abi), wallet) 
+    await expect(metaMorphicContract.destroy(wallet.address))
+            .to.be.revertedWith('Destroy not permitted!')
+    
     await metaMorphicContract.connect(other0).destroy(wallet.address)
   })
 
@@ -120,14 +129,6 @@ describe('FeswaNFT', () => {
     await mineBlock(provider, BidStartTime + 1)
     await expect(FeswaNFT.BidFeswaPair(TokenA.address, TokenA.address, other0.address))
       .to.be.revertedWith('FESN: IDENTICAL_ADDRESSES')
-
-    await expect(FeswaNFT.BidFeswaPair(TokenA.address, other0.address, other0.address,
-              { ...overrides, value: stepPrice } ))
-          .to.be.revertedWith('FESN: Must be token')
-    await expect(FeswaNFT.BidFeswaPair(other1.address, TokenB.address, other0.address,
-            { ...overrides, value: stepPrice } ))
-        .to.be.revertedWith('FESN: Must be token')
-
   })
 
   it('BidFeswaPair: New NFT creation with Zero value', async () => {
@@ -193,10 +194,10 @@ describe('FeswaNFT', () => {
     let receipt
     bidtx = await FeswaNFT.BidFeswaPair(TokenA.address, TokenB.address, other0.address,
                                           { ...overrides, value: stepPrice })
-  
-    receipt = await bidtx.wait()
-    expect(receipt.gasUsed).to.eq('296401')       // 296358 294851 295514
 
+    receipt = await bidtx.wait()
+    expect(receipt.gasUsed).to.eq('294895')         // 294852 295515
+      
     const NewFeswaPair = await FeswaNFT.ListPools(tokenIDMatch)
     const lastBlock = await provider.getBlock('latest')
     expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
@@ -208,11 +209,10 @@ describe('FeswaNFT', () => {
 
     await mineBlock(provider, BidStartTime + 10)
     bidtx = await FeswaNFT.BidFeswaPair(TokenA.address, TokenB.address, other0.address,
-      { ...overrides, value: stepPrice.mul(2) })
+                                          { ...overrides, value: stepPrice.mul(2) })
 
     receipt = await bidtx.wait()
-    expect(receipt.gasUsed).to.eq('103063')     //  103020  101513 103122 98922
-
+    expect(receipt.gasUsed).to.eq('101557')     // 101514 103123 98923
   })
 
   it('BidFeswaPair: NFT Normal creation, and address are swapped', async () => {
@@ -422,11 +422,11 @@ describe('BidFeswaReclaim: reclaim after the maxim delaying', () => {
   let FeswaNFT: Contract
 
   beforeEach('load fixture', async () => {
-    const fixture = await loadFixture(FeswaNFTFixture)
+    const fixture = await loadFixture(FeswaNFTFixturePatch)
     TokenA = fixture.TokenA
     TokenB = fixture.TokenB
     Feswa = fixture.Feswa
-    FeswaNFT = fixture.FeswaNFT
+    FeswaNFT =  new Contract(fixture.FeswaNFT.address, JSON.stringify(FeswaNFTCode.abi), wallet) 
   })
 
   it('BidFeswaState: reclaim for normal ending biding', async () => {
@@ -566,11 +566,11 @@ describe('BidFeswaState: checking state transition and airdrop amount', () => {
   let FeswaNFT: Contract
 
   beforeEach('load fixture', async () => {
-    const fixture = await loadFixture(FeswaNFTFixture)
+    const fixture = await loadFixture(FeswaNFTFixturePatch)
     TokenA = fixture.TokenA
     TokenB = fixture.TokenB
     Feswa = fixture.Feswa
-    FeswaNFT = fixture.FeswaNFT
+    FeswaNFT =  new Contract(fixture.FeswaNFT.address, JSON.stringify(FeswaNFTCode.abi), wallet) 
   })
 
   it('BidFeswaState: Not enter daley duration 2 hours before end of 3-day duratoin', async () => {
@@ -660,11 +660,11 @@ describe('ManageFeswaPair: checking state and airdrop amount to winner', () => {
   let FeswaFactory: Contract
 
   beforeEach('load fixture', async () => {
-    const fixture = await loadFixture(FeswaNFTFixture)
+    const fixture = await loadFixture(FeswaNFTFixturePatch)
     TokenA = fixture.TokenA
     TokenB = fixture.TokenB
     Feswa = fixture.Feswa
-    FeswaNFT = fixture.FeswaNFT
+    FeswaNFT =  new Contract(fixture.FeswaNFT.address, JSON.stringify(FeswaNFTCode.abi), wallet) 
     FeswaFactory = fixture.Factory
   })
 
@@ -680,7 +680,7 @@ describe('ManageFeswaPair: checking state and airdrop amount to winner', () => {
     // still in BidPhase at last second, and check airdrop                            
     let lastBlock = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + OPEN_BID_DURATION + 1)
-    await expect(FeswaNFT.connect(other1).ManageFeswaPair(tokenIDMatch, other1.address, 10, 0  ))
+    await expect(FeswaNFT.connect(other1).ManageFeswaPair(tokenIDMatch, other1.address, 10, 0))
       .to.be.revertedWith('FESN: NOT TOKEN OWNER')
   })
 
@@ -701,13 +701,13 @@ describe('ManageFeswaPair: checking state and airdrop amount to winner', () => {
 
     let NewFeswaPair = await FeswaNFT.ListPools(tokenIDMatch)
     expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.BidPhase)
-    await expect(FeswaNFT.connect(other0).ManageFeswaPair(tokenIDMatch, other0.address, 10, 0 ))
+    await expect(FeswaNFT.connect(other0).ManageFeswaPair(tokenIDMatch, other0.address, 10, 0))
       .to.be.revertedWith('FESN: BID ON GOING 1')
 
     // BidPhase time out
     lastBlock = await provider.getBlock('latest')
     await mineBlock(provider, lastBlock.timestamp + OPEN_BID_DURATION + 1)
-    await FeswaNFT.connect(other0).ManageFeswaPair(tokenIDMatch, other0.address, 10, 0 )
+    await FeswaNFT.connect(other0).ManageFeswaPair(tokenIDMatch, other0.address, 10, 0)
 
     NewFeswaPair = await FeswaNFT.ListPools(tokenIDMatch)
     expect(NewFeswaPair.poolState).to.deep.equal(PoolRunningPhase.BidSettled)
@@ -786,10 +786,10 @@ describe('FeswaPairForSale', () => {
   const PoolSalePrice = expandTo18Decimals(2)
 
   beforeEach('load fixture', async () => {
-    const fixture = await loadFixture(FeswaNFTFixture)
+    const fixture = await loadFixture(FeswaNFTFixturePatch)
     TokenA = fixture.TokenA
     TokenB = fixture.TokenB
-    FeswaNFT = fixture.FeswaNFT
+    FeswaNFT =  new Contract(fixture.FeswaNFT.address, JSON.stringify(FeswaNFTCode.abi), wallet) 
 
     // Normal NFT creation
     await mineBlock(provider, BidStartTime + 1)
@@ -891,17 +891,20 @@ describe('FeswaPairBuyIn', () => {
   let TokenA: Contract
   let TokenB: Contract
   let FeswaNFT: Contract
+  let FeswaNFTPatch: Contract
   let tokenIDMatch: string
   let createBlock: Block
   const PoolSalePrice = expandTo18Decimals(2)
 
   beforeEach('load fixture', async () => {
-    const fixture = await loadFixture(FeswaNFTFixture)
+    const fixture = await loadFixture(FeswaNFTFixturePatch)
     TokenA = fixture.TokenA
     TokenB = fixture.TokenB
-    FeswaNFT = fixture.FeswaNFT
+    FeswaNFT =  new Contract(fixture.FeswaNFT.address, JSON.stringify(FeswaNFTCode.abi), wallet) 
+    FeswaNFTPatch =  new Contract(fixture.FeswaNFT.address, JSON.stringify(FeswaNFTPatchPureCode.abi), wallet)
 
-     // Normal NFT creation
+
+    // Normal NFT creation
     await mineBlock(provider, BidStartTime + 1)
     await FeswaNFT.BidFeswaPair(TokenA.address, TokenB.address, wallet.address,
       { ...overrides, value: stepPrice })
@@ -914,20 +917,20 @@ describe('FeswaPairBuyIn', () => {
   })
 
   it('FeswaPairBuyIn: Wrong TokenID', async () => {
-    await expect(FeswaNFT.FeswaPairBuyIn('0xFFFFFFFF', PoolSalePrice, other0.address,
+    await expect(FeswaNFTPatch.FeswaPairBuyInPatch('0xFFFFFFFF', PoolSalePrice, other0.address,
       { ...overrides, value: PoolSalePrice }))
       .to.be.revertedWith('FESN: TOKEN NOT CREATED')
   })
 
   it('FeswaPairBuyIn: Owner Checking', async () => {
-    await expect(FeswaNFT.connect(other0).FeswaPairBuyIn(tokenIDMatch, PoolSalePrice, other0.address,
+    await expect(FeswaNFTPatch.connect(other0).FeswaPairBuyInPatch(tokenIDMatch, PoolSalePrice, other0.address,
       { ...overrides, value: PoolSalePrice }))
       .to.be.revertedWith('FESN: NOT FOR SALE')
   })
 
   it('FeswaPairBuyIn: Buy with lower Price', async () => {
     await FeswaNFT.FeswaPairForSale(tokenIDMatch, PoolSalePrice)
-    await expect(FeswaNFT.connect(other0).FeswaPairBuyIn(tokenIDMatch, PoolSalePrice, other0.address,
+    await expect(FeswaNFTPatch.connect(other0).FeswaPairBuyInPatch(tokenIDMatch, PoolSalePrice, other0.address,
       { ...overrides, value: PoolSalePrice.sub(1) }))
       .to.be.revertedWith('FESN: PAY LESS')
   })
@@ -939,7 +942,7 @@ describe('FeswaPairBuyIn', () => {
     const WalletBalance = await provider.getBalance(wallet.address)
 
     const NewPoolSalePrice = expandTo18Decimals(3)
-    await expect(FeswaNFT.connect(other0).FeswaPairBuyIn(tokenIDMatch, NewPoolSalePrice, other0.address,
+    await expect(FeswaNFTPatch.connect(other0).FeswaPairBuyInPatch(tokenIDMatch, NewPoolSalePrice, other0.address,
       { ...overrides, value: PoolSalePrice }))
       .to.emit(FeswaNFT, 'Transfer')
       .withArgs(wallet.address, other0.address, tokenIDMatch)
@@ -962,7 +965,7 @@ describe('FeswaPairBuyIn', () => {
 
   it('FeswaPairBuyIn: Normal Buying: Holding Staus', async () => {
     await FeswaNFT.FeswaPairForSale(tokenIDMatch, PoolSalePrice)
-    await expect(FeswaNFT.connect(other0).FeswaPairBuyIn(tokenIDMatch, 0, other0.address,
+    await expect(FeswaNFTPatch.connect(other0).FeswaPairBuyInPatch(tokenIDMatch, 0, other0.address,
       { ...overrides, value: PoolSalePrice }))
       .to.emit(FeswaNFT, 'Transfer')
       .withArgs(wallet.address, other0.address, tokenIDMatch)
@@ -982,11 +985,10 @@ describe('FeswaPairBuyIn', () => {
     const FeswaNFTBalance = await provider.getBalance(FeswaNFT.address)
     const WalletBalance = await provider.getBalance(wallet.address)
     const Other0Balance = await provider.getBalance(other0.address)
-    const tx = await FeswaNFT.connect(other0).FeswaPairBuyIn(tokenIDMatch, 0, other0.address,
+    const tx = await FeswaNFTPatch.connect(other0).FeswaPairBuyInPatch(tokenIDMatch, 0, other0.address,
       { ...overrides, value: PoolSalePrice.mul(2) })
     const receipt = await tx.wait()
-
-    expect(receipt.gasUsed).to.eq('132339')   // 132677 133492  139354
+    expect(receipt.gasUsed).to.eq('133341')     // 133657 134472 139354 140334
 
     // checking
     const NewFeswaPair = await FeswaNFT.ListPools(tokenIDMatch)
@@ -1026,11 +1028,11 @@ describe('getPoolInfoByTokens & getPoolTokens', () => {
   let tokenIDMatch: string
 
   beforeEach('load fixture', async () => {
-    const fixture = await loadFixture(FeswaNFTFixture)
+    const fixture = await loadFixture(FeswaNFTFixturePatch)
     TokenA = fixture.TokenA
     TokenB = fixture.TokenB
     Feswa = fixture.Feswa
-    FeswaNFT = fixture.FeswaNFT
+    FeswaNFT =  new Contract(fixture.FeswaNFT.address, JSON.stringify(FeswaNFTCode.abi), wallet) 
 
     // Normal NFT creation
     await mineBlock(provider, BidStartTime + 1)
@@ -1095,10 +1097,10 @@ describe('withdraw', () => {
   let FeswaNFT: Contract
 
   beforeEach('load fixture', async () => {
-    const fixture = await loadFixture(FeswaNFTFixture)
+    const fixture = await loadFixture(FeswaNFTFixturePatch)
     TokenA = fixture.TokenA
     TokenB = fixture.TokenB
-    FeswaNFT = fixture.FeswaNFT
+    FeswaNFT =  new Contract(fixture.FeswaNFT.address, JSON.stringify(FeswaNFTCode.abi), wallet) 
 
     // Normal NFT creation
     await mineBlock(provider, BidStartTime + 1)
@@ -1149,10 +1151,10 @@ describe('ERC721 Basic Checking', () => {
   const _INTERFACE_ID_ERC721_ENUMERABLE = 0x780e9d63
 
   beforeEach('load fixture', async () => {
-    const fixture = await loadFixture(FeswaNFTFixture)
+    const fixture = await loadFixture(FeswaNFTFixturePatch)
     TokenA = fixture.TokenA
     TokenB = fixture.TokenB
-    FeswaNFT = fixture.FeswaNFT
+    FeswaNFT =  new Contract(fixture.FeswaNFT.address, JSON.stringify(FeswaNFTCode.abi), wallet) 
 
     const TokenC = await deployContract(wallet, TestERC20, ['Test ERC20 B', 'TKB', 18, expandTo18Decimals(1000_000)])
 
@@ -1278,6 +1280,3 @@ describe('ERC721 Basic Checking', () => {
   })
 
 })
-
-
-

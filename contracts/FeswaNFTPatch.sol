@@ -4,10 +4,10 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "./utils/TransferHelper.sol";
 import "./patch/NFTPatchCaller.sol";
+import "./patch/DestroyController.sol";
 
     interface IFeSwapFactory {
         function createUpdatePair(address tokenA, address tokenB, address pairOwner, uint256 rateTrigger, uint256 switchOracle) 
@@ -37,8 +37,7 @@ import "./patch/NFTPatchCaller.sol";
  * @dev Extends ERC721 Non-Fungible Token Standard basic implementation
  */
 
-contract FeswaNFT is ERC721, Ownable, NFTPatchCaller { 
-//contract FeswaNFT is ERC721, Ownable {     
+contract FeswaNFTBasic is ERC721, Ownable, NFTPatchCaller { 
     using SafeMath for uint256;
 
     // Public variables
@@ -57,19 +56,18 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
     // Airdrop for the first tender: 1000 FESW
     uint256 public constant AIRDROP_FOR_FIRST = 1000e18;  
 
-    // BNB = 1; MATIC = 100; Arbitrum, Rinkeby = 0.25; Avalanche=5, HT = 20, Fantom = 80, Harmony = 500
-
+    // BNB = 1; MATIC = 100
     // Airdrop for the next tender: 10000 FESW/BNB
-    uint256 public constant AIRDROP_RATE_FOR_NEXT_BIDDER = 10_000 / 1;      // BNB = 1; MATIC = 100 ; 10_000 / 1;
+    uint256 public constant AIRDROP_RATE_FOR_NEXT_BIDDER = 10_000 / 1;      // BNB = 1; MATIC = 100
 
     // Airdrop rate for Bid winner: 50000 FESW/BNB
-    uint256 public constant AIRDROP_RATE_FOR_WINNER = 50_000 / 1;          // 50_000 / 1
+    uint256 public constant AIRDROP_RATE_FOR_WINNER = 50_000 / 1;    
 
     // Minimum price increase for tender: 0.02 BNB
-    uint256 public constant MINIMUM_PRICE_INCREACE = 2e16 * 1;             //  2e16 * 1
+    uint256 public constant MINIMUM_PRICE_INCREACE = 2e16 * 1;    
 
     // Max price for NFT sale: 100,000 BNB
-    uint256 public constant MAX_SALE_PRICE = 1000_000e18 * 1;              // 1000_000e18 * 1
+    uint256 public constant MAX_SALE_PRICE = 1000_000e18 * 1; 
 
     // contract of Feswap DAO Token
     address public immutable FeswapToken;
@@ -104,7 +102,6 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
     function BidFeswaPair(address tokenA, address tokenB, address to) external payable returns (uint256 tokenID) {
         require(block.timestamp > SaleStartTime, 'FESN: BID NOT STARTED');
         require(tokenA != tokenB, 'FESN: IDENTICAL_ADDRESSES');
-        require(Address.isContract(tokenA) && Address.isContract(tokenB), 'FESN: Must be token');
 
         (address token0, address token1) = (tokenA <= tokenB) ? (tokenA, tokenB) : (tokenB, tokenA);
         tokenID  = uint256(keccak256(abi.encodePacked(address(this), token0, token1)));
@@ -260,11 +257,75 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
         
         return pairPrice;
     }    
+}
 
+/**
+ * @title FeswaNFT contract
+ * @dev Extends ERC721 Non-Fungible Token Standard basic implementation
+ */
+
+contract FeswaNFTPatch is ERC721, Ownable, DestroyController { 
+    using SafeMath for uint256;
+
+    // Public variables
+    string public constant NAME = 'FeSwap Pool NFT';
+    string public constant SYMBOL = 'FESN';
+
+    // Price offering duration: two weeks 
+//    uint256 public constant OPEN_BID_DURATION = (3600 * 10);      // For test
+    uint256 public constant OPEN_BID_DURATION = (3600 * 24 * 3);
+
+    uint256 public constant RECLAIM_DURATION  = (3600 * 24 * 4);    // NFT will be reclaimed if the token pair is not created in the duration 
+
+    // Price offering waiting duration: 2 Hours
+    uint256 public constant CLOSE_BID_DELAY = (3600 * 2);           
+
+    // Airdrop for the first tender: 1000 FESW
+    uint256 public constant AIRDROP_FOR_FIRST = 1000e18;  
+
+    // BNB = 1; MATIC = 100
+    // Airdrop for the next tender: 10000 FESW/BNB
+    uint256 public constant AIRDROP_RATE_FOR_NEXT_BIDDER = 10_000 / 1;      // BNB = 1; MATIC = 100
+
+    // Airdrop rate for Bid winner: 50000 FESW/BNB
+    uint256 public constant AIRDROP_RATE_FOR_WINNER = 50_000 / 1;    
+
+    // Minimum price increase for tender: 0.02 BNB
+    uint256 public constant MINIMUM_PRICE_INCREACE = 2e16 * 1;    
+
+    // Max price for NFT sale: 100,000 BNB
+    uint256 public constant MAX_SALE_PRICE = 1000_000e18 * 1; 
+
+    // contract of Feswap DAO Token
+    address public immutable FeswapToken;
+
+    // contract of Token Pair Factory
+    address public immutable PairFactory;
+
+    // Sale start timestamp
+    uint256 public immutable SaleStartTime;                                   //2021/09/28 08:00
+
+    // Mapping from token ID to token pair infomation
+    mapping (uint256 => FeswaPair) public ListPools;
+ 
+    // Events
+    event PairCreadted(address indexed tokenA, address indexed tokenB, uint256 tokenID);
+
+    /**
+     * @dev Initializes the contract by setting a `name` and a `symbol` to the token collection.
+     */
+    constructor (address feswaToken, address pairFactory, uint256 saleStartTime ) 
+        ERC721(NAME, SYMBOL)
+    {
+        FeswapToken = feswaToken;
+        PairFactory = pairFactory;
+        SaleStartTime = saleStartTime;
+    }
+  
     /**
      * @dev Sell the Pair with the specified Price. 
      */
-    function FeswaPairBuyIn(uint256 tokenID, uint256 newPrice, address to) external payable returns (uint256 getPrice) {
+    function FeswaPairBuyInPatch(uint256 tokenID, uint256 newPrice, address to) external payable returns (uint256 getPrice) {
         require(_exists(tokenID), 'FESN: TOKEN NOT CREATED');
         FeswaPair storage pairInfo = ListPools[tokenID]; 
         require( pairInfo.poolState == PoolRunningPhase.PoolForSale, 'FESN: NOT FOR SALE');

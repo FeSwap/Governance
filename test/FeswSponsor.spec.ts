@@ -1,13 +1,9 @@
 import chai, { expect } from 'chai'
 import { BigNumber, Contract, constants, utils } from 'ethers'
 import { solidity, MockProvider, createFixtureLoader, deployContract } from 'ethereum-waffle'
-import { ecsign } from 'ethereumjs-util'
-import { Block } from "@ethersproject/abstract-provider";
 
 import { sponsorFixture } from './shares/fixtures'
 import { expandTo18Decimals, mineBlock, encodeParameters } from './shares/utils'
-
-import FeswapByteCode from '../build/Fesw.json'
 
 chai.use(solidity)
 
@@ -289,7 +285,7 @@ describe('FeswapSponsor', () => {
     await mineBlock(provider, startTime + 10)
     let tx = await sponsorContract.connect(other1).Sponsor(other0.address, { ...overrides, value: ETHOne.mul(200) } )
     let receipt = await tx.wait()   
-    expect(receipt.gasUsed).to.eq(66843)        
+    expect(receipt.gasUsed).to.eq(66680)       //  66658
 
     // 1. Try to finalize the sponsor while it is still on going 
     await expect(sponsorContract.finalizeSponsor())

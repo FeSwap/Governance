@@ -1,15 +1,16 @@
-// SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.7.0;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.7.5;
 pragma experimental ABIEncoderV2;
 
 import "./utils/SafeMath.sol";
+import "./patch/FeswPatchCaller.sol";
 
-contract Fesw {
+contract Fesw is FeswPatchCaller{
     /// @notice EIP-20 token name for this token
     string public constant name = "FeSwap DAO";
 
     /// @notice EIP-20 token symbol for this token
-    string public constant symbol = "FESW";
+    string public symbol;
 
     /// @notice EIP-20 token decimals for this token
     uint8 public constant decimals = 18;
@@ -84,9 +85,10 @@ contract Fesw {
      * @param minterBurner_ The account with minting/burning ability
      * @param mintingAllowedAfter_ The timestamp after which minting may occur
      */
-    constructor(address account, address minterBurner_, uint mintingAllowedAfter_) {
+    constructor(address account, address minterBurner_, uint mintingAllowedAfter_, string memory _symbol) {
         require(mintingAllowedAfter_ >= block.timestamp, "FESW::constructor: minting can only begin after deployment");
 
+        symbol = _symbol;
         balances[account] = uint96(totalSupply);
         emit Transfer(address(0), account, totalSupply);
         minterBurner = minterBurner_;
