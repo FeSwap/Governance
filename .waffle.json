@@ -1,5 +1,4 @@
 {
-  "compilerType": "solcjs",
   "compilerVersion": "./node_modules/solc",
   "outputType": "all",
   "compilerOptions": {
@@ -12,8 +11,6 @@
           "evm.bytecode.sourceMap",
           "evm.bytecode.opcodes",
           "evm.deployedBytecode.sourceMap",
-          "evm.assembly", 
-          "storageLayout",
           "metadata"
         ],
         "": ["ast"]

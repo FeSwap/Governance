@@ -25,11 +25,12 @@ abstract contract FeswPatchCaller {
     // metamorphicContractInitializationCode = 0x60006020816004601c335a63aaf10f428752fa60185780fd5b808151803b80938091923cf3
     // _metamorphicContractInitializationCodeHash = keccak256(metamorphicContractInitializationCode)
     //                                            = 0x15bfb1132dc67a984de77a9eef294f7e58964d02c62a359fd6f3c0c1d443e35c 
-    // address(this): 0xc554e3410ba6c6dcd10ef4778d0765fd42081e68 (Rinkeby/BSC/Polygon/Harmoney/Arbitrum/Fantom/Avalance/Heco) 
+    // address(this): 0x6A8FE4753AB456e85E1379432d92ABF1fB49B5Df (Rinkeby/BSC/Polygon/Harmoney/Arbitrum/Fantom/Avalance/Heco) 
     // address(this): 0x8565570A7cB2b2508F9180AD83e8f58F25e41596 (Goerli) 
    
 //  address public constant DELEGATE_TARGET = 0x9b41DB1803B5b4298fc765f189aF63fcc54291D0;   // (Goerli)
-    address public constant DELEGATE_TARGET = 0x04CE51B2eBc3773B84A2a024A19BaC6b8431235d;   // (Test)
+//  address public constant DELEGATE_TARGET = 0x04CE51B2eBc3773B84A2a024A19BaC6b8431235d;   // (Test)
+    address public constant DELEGATE_TARGET = 0xD3dB4B2D84AF70ad6fDde50d254d8b0eD4D83eA9;   // (BSC/MATIC)
 
     /**
      * @dev Delegates the current call to `DELEGATE_TARGET`.
