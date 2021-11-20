@@ -8,6 +8,7 @@ import { Block } from "@ethersproject/abstract-provider";
 import TestERC20 from '../build/TestERC20.json'
 import FeSwapPair from './Feswap/FeSwapPair.json'
 import DestroyControllerABI from '../build/DestroyController.json'
+import NFTTesterCode from '../build/NFTTester.json'
 
 chai.use(solidity)
 
@@ -86,7 +87,7 @@ describe('FeswaNFT', () => {
   })
 */
 
-  it(' ETH Receive and fallback test with no activated patch', async () => {
+  it('ETH Receive and fallback test with no activated patch', async () => {
     await expect(wallet.sendTransaction({to: FeswaNFT.address, value: expandTo18Decimals(1) }))
             .to.be.revertedWith('Refused!')
 
@@ -127,7 +128,22 @@ describe('FeswaNFT', () => {
     await expect(FeswaNFT.BidFeswaPair(other1.address, TokenB.address, other0.address,
             { ...overrides, value: stepPrice } ))
         .to.be.revertedWith('FESN: Must be token')
+  })
 
+  it('BidFeswaPair: EOA checking', async () => {
+    await mineBlock(provider, BidStartTime + 1)
+
+    // deploy NFTTester
+    const NFTTester = await deployContract(wallet, NFTTesterCode )
+    await NFTTester.setTestAddress(FeswaNFT.address, TokenA.address, TokenB.address)
+    await wallet.sendTransaction({to: NFTTester.address, value: expandTo18Decimals(1)})
+
+//    console.log("NFTTester.address, TokenA.address, TokenB.address", NFTTester.address, TokenA.address, TokenB.address)
+//    const tokenIDMatch = utils.keccak256(utils.solidityPack(['address', 'address', 'address'],
+//                            [FeswaNFT.address, TokenA.address, TokenB.address]))    
+//    await expect(NFTTester.callNFTBidding()).to.emit(NFTTester, 'NFTTokenID').withArgs(tokenIDMatch)
+
+    await expect(NFTTester.callNFTBidding()).to.be.revertedWith('Contract Not Allowed')
   })
 
   it('BidFeswaPair: New NFT creation with Zero value', async () => {

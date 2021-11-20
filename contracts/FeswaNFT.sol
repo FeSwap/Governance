@@ -109,8 +109,7 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
         require(block.timestamp > SaleStartTime, 'FESN: BID NOT STARTED');
         require(tokenA != tokenB, 'FESN: IDENTICAL_ADDRESSES');
         require(Address.isContract(tokenA) && Address.isContract(tokenB), 'FESN: Must be token');
-        require(!Address.isContract(msg.sender), 'FESN: POA only');
-
+        require(!Address.isContract(msg.sender), 'FESN: Contract Not Allowed');
 
         (address token0, address token1) = (tokenA <= tokenB) ? (tokenA, tokenB) : (tokenB, tokenA);
         tokenID  = uint256(keccak256(abi.encodePacked(address(this), token0, token1)));
@@ -185,7 +184,7 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
         } else {
             // _mint will check 'to' not be Zero, and tokenID not repeated.
             _mint(to, tokenID);
-            emit PairCreadted(tokenA, tokenB, tokenID);             // (token0, token1, tokenID)
+            emit PairCreadted(token0, token1, tokenID);             // (token0, token1, tokenID)
             
             // Only creators of the first 50,000 token pairs will receive the airdrop
             if (totalSupply() <= 50_000) airdropAmount = AIRDROP_FOR_FIRST;
