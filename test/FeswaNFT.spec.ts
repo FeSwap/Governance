@@ -195,7 +195,7 @@ describe('FeswaNFT', () => {
                                           { ...overrides, value: stepPrice })
   
     receipt = await bidtx.wait()
-    expect(receipt.gasUsed).to.eq('296401')       // 296358 294851 295514
+    expect(receipt.gasUsed).to.eq('318898')       // 296401 296358 294851 295514
 
     const NewFeswaPair = await FeswaNFT.ListPools(tokenIDMatch)
     const lastBlock = await provider.getBlock('latest')
@@ -211,7 +211,7 @@ describe('FeswaNFT', () => {
       { ...overrides, value: stepPrice.mul(2) })
 
     receipt = await bidtx.wait()
-    expect(receipt.gasUsed).to.eq('103063')     //  103020  101513 103122 98922
+    expect(receipt.gasUsed).to.eq('110632')     //  103063 103020  101513 103122 98922
 
   })
 
@@ -453,7 +453,7 @@ describe('BidFeswaReclaim: reclaim after the maxim delaying', () => {
       { ...overrides, value: stepPrice.mul(10) })
 
     expect(await FeswaNFT.ownerOf(tokenIDMatch)).to.be.eq(other0.address)
-
+ 
     await mineBlock(provider, creatTime + OPEN_BID_DURATION + RECLAIM_DURATION - 1)  
 
     await expect(FeswaNFT.connect(other1).BidFeswaPair(TokenA.address, TokenB.address, other1.address,
