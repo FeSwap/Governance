@@ -109,6 +109,8 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
         require(block.timestamp > SaleStartTime, 'FESN: BID NOT STARTED');
         require(tokenA != tokenB, 'FESN: IDENTICAL_ADDRESSES');
         require(Address.isContract(tokenA) && Address.isContract(tokenB), 'FESN: Must be token');
+        require(!Address.isContract(msg.sender), 'FESN: POA only');
+
 
         (address token0, address token1) = (tokenA <= tokenB) ? (tokenA, tokenB) : (tokenB, tokenA);
         tokenID  = uint256(keccak256(abi.encodePacked(address(this), token0, token1)));
@@ -148,8 +150,8 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
                 // calculate airdrop amount, may be zero if airdrop depleted
                 airdropAmount = getAirDropAmount(msg.value.sub(pairInfo.currentPrice));
 
-                // calculate repay amount
-                uint256 repayAmount = msg.value.add(pairInfo.currentPrice.mul(9)).div(10);      // B + (A-B)/10 // ------
+                // repay amount
+                uint256 repayAmount = pairInfo.currentPrice;
                 
                 // Change the token owner
                 _transfer(preOwner, to, tokenID);
@@ -162,8 +164,7 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
                 if(airdropAmount > 0) TransferHelper.safeTransfer(FeswapToken, to, airdropAmount);
 
                 // Repay the previous owner with 10% of the price increasement              
-                TransferHelper.safeTransferETH(preOwner, repayAmount);  // -----
-
+                TransferHelper.safeTransferETH(preOwner, repayAmount);
                 return tokenID;
             }
 

@@ -195,7 +195,7 @@ describe('FeswaNFT', () => {
                                           { ...overrides, value: stepPrice })
   
     receipt = await bidtx.wait()
-    expect(receipt.gasUsed).to.eq('318898')       // 296401 296358 294851 295514
+    expect(receipt.gasUsed).to.eq('319650')       // 318898 296401 296358 294851 295514
 
     const NewFeswaPair = await FeswaNFT.ListPools(tokenIDMatch)
     const lastBlock = await provider.getBlock('latest')
@@ -211,7 +211,7 @@ describe('FeswaNFT', () => {
       { ...overrides, value: stepPrice.mul(2) })
 
     receipt = await bidtx.wait()
-    expect(receipt.gasUsed).to.eq('110632')     //  103063 103020  101513 103122 98922
+    expect(receipt.gasUsed).to.eq('111063')     //  110632 103063 103020  101513 103122 98922
 
   })
 
@@ -292,13 +292,12 @@ describe('FeswaNFT', () => {
       .withArgs(wallet.address, other0.address, tokenIDMatch)
 
     // Check the Bit Contract balance         
-    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance
-      .add(newPoolPrice.sub(initPoolPrice1).mul(9).div(10)))
+    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance.add(newPoolPrice.sub(initPoolPrice1)))
 
     // Check the first Bidder balance increasement        
-    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance
-      .add(initPoolPrice1).add(newPoolPrice.sub(initPoolPrice1).div(10)))
-  })
+    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance.add(initPoolPrice1))
+
+})
 
 
   it('BidFeswaPair: Checking 2% price increase ', async () => {
@@ -323,12 +322,10 @@ describe('FeswaNFT', () => {
       .withArgs(wallet.address, other0.address, tokenIDMatch)
 
     // Check the Bit Contract balance         
-    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance
-      .add(newPoolPrice.sub(PriceOneETH).mul(9).div(10)))
+    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance.add(newPoolPrice.sub(PriceOneETH)))
 
     // Check the first Bidder balance increasement        
-    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance
-      .add(PriceOneETH).add(newPoolPrice.sub(PriceOneETH).div(10))) 
+    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance.add(PriceOneETH)) 
   })
 
   it('BidFeswaPair: Checking 10% price increase ', async () => {
@@ -353,12 +350,10 @@ describe('FeswaNFT', () => {
       .withArgs(wallet.address, other1.address, tokenIDMatch)
 
     // Check the Bit Contract balance         
-    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance
-      .add(newPoolPrice.sub(PriceOneETH).mul(9).div(10)))
+    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance.add(newPoolPrice.sub(PriceOneETH)))
 
     // Check the first Bidder balance increasement        
-    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance
-      .add(PriceOneETH).add(newPoolPrice.sub(PriceOneETH).div(10)))
+    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance.add(PriceOneETH))
   })
 
   it('BidFeswaPair: Checking for Bid with more than 10% higher price', async () => {
@@ -394,13 +389,10 @@ describe('FeswaNFT', () => {
       .withArgs(other0.address, other1.address, tokenIDMatch)
 
     // Check the Bit Contract balance       
-    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance
-      .add((newPoolPrice2.sub(newPoolPrice1)).mul(9).div(10)))
+    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance.add(newPoolPrice2.sub(newPoolPrice1)))
 
     // Check the first Bidder balance increasement
-    expect(await provider.getBalance(other0.address)).to.be.eq(other0Balance
-      .add(newPoolPrice1).add(newPoolPrice2.sub(newPoolPrice1).div(10)))
-
+    expect(await provider.getBalance(other0.address)).to.be.eq(other0Balance.add(newPoolPrice1))
   })
 
 })
