@@ -110,6 +110,7 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
         require(tokenA != tokenB, 'FESN: IDENTICAL_ADDRESSES');
         require(Address.isContract(tokenA) && Address.isContract(tokenB), 'FESN: Must be token');
         require(!Address.isContract(msg.sender), 'FESN: Contract Not Allowed');
+        if(to != msg.sender) require(!Address.isContract(to), 'FESN: Contract Not Allowed');
 
         (address token0, address token1) = (tokenA <= tokenB) ? (tokenA, tokenB) : (tokenB, tokenA);
         tokenID  = uint256(keccak256(abi.encodePacked(address(this), token0, token1)));
@@ -162,25 +163,26 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
                 // Airdrop to the next coming tenders
                 if(airdropAmount > 0) TransferHelper.safeTransfer(FeswapToken, to, airdropAmount);
 
-                // Repay the previous owner with 10% of the price increasement              
+                // Repay the previous owner             
                 TransferHelper.safeTransferETH(preOwner, repayAmount);
                 return tokenID;
             }
 
             // Prepare to reclaim the swap token-pair, half of the bidding price will be returned
             uint256 returnPrice = pairInfo.currentPrice / 2;
+            airdropAmount = 0;
 
+            // Change the token owner
+            _transfer(preOwner, to, tokenID);
+            
             // return back 50% of the previous price
             if( returnPrice > 0 ){
                 if((AirdropDepletionTime==0) || (pairInfo.timeCreated <= AirdropDepletionTime))
                     TransferHelper.safeTransfer(FeswapToken, preOwner, returnPrice.mul(AIRDROP_RATE_FOR_WINNER));
+
+                // As preOwner cannot be contact, re-entry not possible here       
                 TransferHelper.safeTransferETH(preOwner, returnPrice);
             }
-
-            // Change the token owner
-            _transfer(preOwner, to, tokenID);
-            airdropAmount = 0;
-
         } else {
             // _mint will check 'to' not be Zero, and tokenID not repeated.
             _mint(to, tokenID);
@@ -210,11 +212,14 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
         airdropAmount = 0;
         if(AirdropDepletionTime == 0) {
             uint256 availableAirdrop = BIDDING_AIRDROP - TotalBidValue;
-            if(availableAirdrop < userBidValue) userBidValue = availableAirdrop;
-            airdropAmount = userBidValue.mul(AIRDROP_RATE_FOR_NEXT_BIDDER);
-        }    
+            uint256 airdropValue = userBidValue;
+            if(availableAirdrop <= airdropValue) {
+                airdropValue = availableAirdrop;
+                AirdropDepletionTime = uint64(block.timestamp);
+            }
+            airdropAmount = airdropValue.mul(AIRDROP_RATE_FOR_NEXT_BIDDER);
+        }
         TotalBidValue += uint128(userBidValue);
-        if(TotalBidValue >= BIDDING_AIRDROP) AirdropDepletionTime = uint64(block.timestamp);
         return airdropAmount;
     }
 
