@@ -27,15 +27,17 @@ enum PoolRunningPhase {
 }
 
 const coinTimes = 1   // BNB = 1; MATIC = 100;
+const AIRDROP_FOR_FIRST = expandTo18Decimals(1000);   // BNB
+
+// const coinTimes = 100   // BNB = 1; MATIC = 100;
+// const AIRDROP_FOR_FIRST = expandTo18Decimals(3000);   // MATIC
+
 const stepPrice = expandTo18Decimals(2).div(100).mul(coinTimes)
 const PriceOneETH = stepPrice.mul(50)
 const BidStartTime: number = 1615338000         // 2021/02/22 03/10 9:00
 const OPEN_BID_DURATION: number = (3600 * 24 * 3)
 const RECLAIM_DURATION: number = (3600 * 24 * 4)
 const CLOSE_BID_DELAY: number = (3600 * 2)
-
-// Airdrop for the first tender: 1000 FEST
-const AIRDROP_FOR_FIRST = expandTo18Decimals(1000);
 
 // Airdrop for the next tender: 500 FEST
 const AIRDROP_RATE_FOR_NEXT = 10000 / coinTimes;
@@ -104,7 +106,7 @@ describe('FeswaNFT', () => {
     expect(await FeswaNFT.OPEN_BID_DURATION()).to.eq(3600 * 24 * 3)
     expect(await FeswaNFT.RECLAIM_DURATION()).to.eq(3600 * 24 * 4)
     expect(await FeswaNFT.CLOSE_BID_DELAY()).to.eq(3600 * 2)
-    expect(await FeswaNFT.AIRDROP_FOR_FIRST()).to.eq(expandTo18Decimals(1000))
+    expect(await FeswaNFT.AIRDROP_FOR_FIRST()).to.eq(AIRDROP_FOR_FIRST)
     expect(await FeswaNFT.AIRDROP_RATE_FOR_NEXT_BIDDER()).to.eq(AIRDROP_RATE_FOR_NEXT)
     expect(await FeswaNFT.AIRDROP_RATE_FOR_WINNER()).to.eq(AIRDROP_RATE_FOR_WINNER)
     expect(await FeswaNFT.MINIMUM_PRICE_INCREACE()).to.eq(stepPrice)

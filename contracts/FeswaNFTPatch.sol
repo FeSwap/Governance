@@ -4,6 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "./utils/TransferHelper.sol";
 import "./patch/NFTPatchCaller.sol";
@@ -45,7 +46,6 @@ contract FeswaNFTBasic is ERC721, Ownable, NFTPatchCaller {
     string public constant SYMBOL = 'FESN';
 
     // Price offering duration: two weeks 
-//    uint256 public constant OPEN_BID_DURATION = (3600 * 10);      // For test
     uint256 public constant OPEN_BID_DURATION = (3600 * 24 * 3);
 
     uint256 public constant RECLAIM_DURATION  = (3600 * 24 * 4);    // NFT will be reclaimed if the token pair is not created in the duration 
@@ -54,20 +54,25 @@ contract FeswaNFTBasic is ERC721, Ownable, NFTPatchCaller {
     uint256 public constant CLOSE_BID_DELAY = (3600 * 2);           
 
     // Airdrop for the first tender: 1000 FESW
-    uint256 public constant AIRDROP_FOR_FIRST = 1000e18;  
+    uint256 public constant AIRDROP_FOR_FIRST = 1000e18;            // BNB: 1000; MATIC: 3000
+//  uint256 public constant AIRDROP_FOR_FIRST = 3000e18;            // BNB: 1000; MATIC: 3000
 
-    // BNB = 1; MATIC = 100
+    // Bidding airdrop cap : 2500 ETH
+    uint256 private constant BIDDING_AIRDROP = 2500e18;  
+ 
+    // BNB = 1; MATIC = 100; Arbitrum, Rinkeby = 0.25; Avalanche=5, HT = 20, Fantom = 80, Harmony = 500
+
     // Airdrop for the next tender: 10000 FESW/BNB
-    uint256 public constant AIRDROP_RATE_FOR_NEXT_BIDDER = 10_000 / 1;      // BNB = 1; MATIC = 100
+    uint256 public constant AIRDROP_RATE_FOR_NEXT_BIDDER = 10_000 / 1;      // 10_000 / 1, BNB = 1; MATIC = 100 ; Arbitrum: 40_000
 
     // Airdrop rate for Bid winner: 50000 FESW/BNB
-    uint256 public constant AIRDROP_RATE_FOR_WINNER = 50_000 / 1;    
+    uint256 public constant AIRDROP_RATE_FOR_WINNER = 50_000 / 1;           // 50_000 / 1; Arbitrum: 200_000
 
     // Minimum price increase for tender: 0.02 BNB
-    uint256 public constant MINIMUM_PRICE_INCREACE = 2e16 * 1;    
+    uint256 public constant MINIMUM_PRICE_INCREACE = 2e16 * 1;              //  2e16 * 1; Arbitrum: 5e15
 
     // Max price for NFT sale: 100,000 BNB
-    uint256 public constant MAX_SALE_PRICE = 1000_000e18 * 1; 
+    uint256 public constant MAX_SALE_PRICE = 1000_000e18 * 1;               // 1000_000e18 * 1; Arbitrum: 250_000e18
 
     // contract of Feswap DAO Token
     address public immutable FeswapToken;
@@ -77,6 +82,9 @@ contract FeswaNFTBasic is ERC721, Ownable, NFTPatchCaller {
 
     // Sale start timestamp
     uint256 public immutable SaleStartTime;                                   //2021/09/28 08:00
+
+    uint128 public TotalBidValue;
+    uint64  public AirdropDepletionTime;
 
     // Mapping from token ID to token pair infomation
     mapping (uint256 => FeswaPair) public ListPools;
@@ -97,14 +105,19 @@ contract FeswaNFTBasic is ERC721, Ownable, NFTPatchCaller {
 
     /**
      * @dev Bid for the token-pair swap pool with higher price. 
-     * Create the new token for the fisrt-time calling with minumum initial price 
+     * Create the new NFT for the fisrt-time calling with initial price 
      */
     function BidFeswaPair(address tokenA, address tokenB, address to) external payable returns (uint256 tokenID) {
         require(block.timestamp > SaleStartTime, 'FESN: BID NOT STARTED');
         require(tokenA != tokenB, 'FESN: IDENTICAL_ADDRESSES');
+        require(Address.isContract(tokenA) && Address.isContract(tokenB), 'FESN: Must be token');
+        require(!Address.isContract(msg.sender), 'FESN: Contract Not Allowed');
+        if(to != msg.sender) require(!Address.isContract(to), 'FESN: Contract Not Allowed');
 
         (address token0, address token1) = (tokenA <= tokenB) ? (tokenA, tokenB) : (tokenB, tokenA);
         tokenID  = uint256(keccak256(abi.encodePacked(address(this), token0, token1)));
+
+        uint256 airdropAmount;
 
         if(_exists(tokenID )){
             bool isReclaimable = false;
@@ -131,80 +144,87 @@ contract FeswaNFTBasic is ERC721, Ownable, NFTPatchCaller {
                 }
             }
 
-            if(isReclaimable)
+            if(!isReclaimable)
             {
-                // Prepare swap token-pair infomation
-                uint256 returnPrice = pairInfo.currentPrice / 2;
+                require(msg.value >= pairInfo.currentPrice.mul(102).div(100), 'FESN: PAY LESS 1');  // minimum 2% increase
+                require(msg.value >= pairInfo.currentPrice.add(MINIMUM_PRICE_INCREACE), 'FESN: PAY LESS 2');  // minimum 0.02 BNB increase
 
-                FeswaPair memory newPairInfo;
-                newPairInfo.tokenA = token0;
-                newPairInfo.tokenB = token1;
-                newPairInfo.currentPrice = msg.value;                      
-                newPairInfo.timeCreated = uint64(block.timestamp);
-                newPairInfo.lastBidTime = uint64(block.timestamp);
-                newPairInfo.poolState = PoolRunningPhase.BidPhase;
+                // calculate airdrop amount, may be zero if airdrop depleted
+                airdropAmount = getAirDropAmount(msg.value.sub(pairInfo.currentPrice));
 
-                ListPools[tokenID] = newPairInfo;
+                // repay amount
+                uint256 repayAmount = pairInfo.currentPrice;
                 
                 // Change the token owner
                 _transfer(preOwner, to, tokenID);
+                
+                // update pairInfo information
+                pairInfo.lastBidTime = uint64(block.timestamp);
+                pairInfo.currentPrice = msg.value;
 
-                // Airdrop to the reclaim bidder
-                if(msg.value > 0) TransferHelper.safeTransfer(FeswapToken, to, msg.value.mul(AIRDROP_RATE_FOR_NEXT_BIDDER));
+                // Airdrop to the next coming tenders
+                if(airdropAmount > 0) TransferHelper.safeTransfer(FeswapToken, to, airdropAmount);
 
-                // return back 50% of the previous price
-                if( returnPrice > 0 ){
-                    TransferHelper.safeTransfer(FeswapToken, preOwner, returnPrice.mul(AIRDROP_RATE_FOR_WINNER));
-                    TransferHelper.safeTransferETH(preOwner, returnPrice);
-                }
+                // Repay the previous owner             
+                TransferHelper.safeTransferETH(preOwner, repayAmount);
                 return tokenID;
-            }    
+            }
 
-            require(msg.value >= pairInfo.currentPrice.mul(102).div(100), 'FESN: PAY LESS 1');  // minimum 2% increase
-            require(msg.value >= pairInfo.currentPrice.add(MINIMUM_PRICE_INCREACE), 'FESN: PAY LESS 2');  // minimum 0.02 BNB increase
+            // Prepare to reclaim the swap token-pair, half of the bidding price will be returned
+            uint256 returnPrice = pairInfo.currentPrice / 2;
+            airdropAmount = 0;
 
-            // update last tender timestamp
-            pairInfo.lastBidTime = uint64(block.timestamp);
-
-            // calculate repay amount
-            uint256 repayAmount = msg.value.add(pairInfo.currentPrice.mul(9)).div(10);      // B + (A-B)/10
-            uint256 airdropAmount = msg.value.sub(pairInfo.currentPrice).mul(AIRDROP_RATE_FOR_NEXT_BIDDER);
-            
             // Change the token owner
             _transfer(preOwner, to, tokenID);
-            pairInfo.currentPrice = msg.value;
+            
+            // return back 50% of the previous price
+            if( returnPrice > 0 ){
+                if((AirdropDepletionTime==0) || (pairInfo.timeCreated <= AirdropDepletionTime))
+                    TransferHelper.safeTransfer(FeswapToken, preOwner, returnPrice.mul(AIRDROP_RATE_FOR_WINNER));
 
-            // Repay the previous owner with 10% of the price increasement              
-            TransferHelper.safeTransferETH(preOwner, repayAmount);
-
-            // Airdrop to the next coming tenders
-            TransferHelper.safeTransfer(FeswapToken, to, airdropAmount);
-
+                // As preOwner cannot be contact, re-entry not possible here       
+                TransferHelper.safeTransferETH(preOwner, returnPrice);
+            }
         } else {
             // _mint will check 'to' not be Zero, and tokenID not repeated.
             _mint(to, tokenID);
-
-            // Prepare swap token-pair infomation
-            FeswaPair memory pairInfo;
-            pairInfo.tokenA = token0;
-            pairInfo.tokenB = token1;
-            pairInfo.currentPrice = msg.value;              
-            pairInfo.timeCreated = uint64(block.timestamp);
-            pairInfo.lastBidTime = uint64(block.timestamp);
-            pairInfo.poolState = PoolRunningPhase.BidPhase;
-
-            ListPools[tokenID] = pairInfo;
-            emit PairCreadted(tokenA, tokenB, tokenID);
-
-            uint256 airdropAmount = 0;
-
+            emit PairCreadted(token0, token1, tokenID);             // (token0, token1, tokenID)
+            
             // Only creators of the first 50,000 token pairs will receive the airdrop
-            if (totalSupply() <= 50_000) airdropAmount = AIRDROP_FOR_FIRST;
-            if(msg.value > 0) airdropAmount =  airdropAmount.add(msg.value.mul(AIRDROP_RATE_FOR_NEXT_BIDDER));
-
-            // Airdrop to the first tender
-            TransferHelper.safeTransfer(FeswapToken, to, airdropAmount);
+            if (totalSupply() <= 50_000) airdropAmount = AIRDROP_FOR_FIRST;     // BNB
+//          if (totalSupply() <= 10_000) airdropAmount = AIRDROP_FOR_FIRST;     // MATIC
+  
         }
+            
+        // Prepare swap token-pair infomation for initial creation or re-bidding
+        FeswaPair memory newPairInfo;
+        newPairInfo.tokenA = token0;
+        newPairInfo.tokenB = token1;
+        newPairInfo.currentPrice = msg.value;              
+        newPairInfo.timeCreated = uint64(block.timestamp);
+        newPairInfo.lastBidTime = uint64(block.timestamp);
+        newPairInfo.poolState = PoolRunningPhase.BidPhase;
+        ListPools[tokenID] = newPairInfo;
+
+        if(msg.value > 0) airdropAmount += getAirDropAmount(msg.value);
+
+        // Airdrop to the first tender, airdropAmount maybe 0 after 50K token pair created
+        if(airdropAmount > 0) TransferHelper.safeTransfer(FeswapToken, to, airdropAmount);
+    }
+
+    function getAirDropAmount(uint256 userBidValue) internal returns (uint256 airdropAmount) {
+        airdropAmount = 0;
+        if(AirdropDepletionTime == 0) {
+            uint256 availableAirdrop = BIDDING_AIRDROP - TotalBidValue;
+            uint256 airdropValue = userBidValue;
+            if(availableAirdrop <= airdropValue) {
+                airdropValue = availableAirdrop;
+                AirdropDepletionTime = uint64(block.timestamp);
+            }
+            airdropAmount = airdropValue.mul(AIRDROP_RATE_FOR_NEXT_BIDDER);
+        }
+        TotalBidValue += uint128(userBidValue);
+        return airdropAmount;
     }
 
     /**
@@ -227,8 +247,11 @@ contract FeswaNFTBasic is ERC721, Ownable, NFTPatchCaller {
             // could prevent recursive calling
             pairInfo.poolState = PoolRunningPhase.BidSettled;
 
-            // Airdrop to the NFT owner
-            TransferHelper.safeTransfer(FeswapToken, msg.sender, pairInfo.currentPrice.mul(AIRDROP_RATE_FOR_WINNER));
+            // Airdrop to the NFT owner, may be over airdropped, the over part paid from FeSwap Fund
+            if(pairInfo.currentPrice > 0) { 
+                if((AirdropDepletionTime == 0) || (pairInfo.timeCreated <= AirdropDepletionTime))
+                TransferHelper.safeTransfer(FeswapToken, msg.sender, pairInfo.currentPrice.mul(AIRDROP_RATE_FOR_WINNER));
+            }    
         }
 
         (address tokenA, address tokenB) = (pairInfo.tokenA, pairInfo.tokenB);
@@ -272,7 +295,6 @@ contract FeswaNFTPatch is ERC721, Ownable, DestroyController {
     string public constant SYMBOL = 'FESN';
 
     // Price offering duration: two weeks 
-//    uint256 public constant OPEN_BID_DURATION = (3600 * 10);      // For test
     uint256 public constant OPEN_BID_DURATION = (3600 * 24 * 3);
 
     uint256 public constant RECLAIM_DURATION  = (3600 * 24 * 4);    // NFT will be reclaimed if the token pair is not created in the duration 
@@ -281,20 +303,25 @@ contract FeswaNFTPatch is ERC721, Ownable, DestroyController {
     uint256 public constant CLOSE_BID_DELAY = (3600 * 2);           
 
     // Airdrop for the first tender: 1000 FESW
-    uint256 public constant AIRDROP_FOR_FIRST = 1000e18;  
+    uint256 public constant AIRDROP_FOR_FIRST = 1000e18;            // BNB: 1000; MATIC: 3000
+//  uint256 public constant AIRDROP_FOR_FIRST = 3000e18;            // BNB: 1000; MATIC: 3000
 
-    // BNB = 1; MATIC = 100
+    // Bidding airdrop cap : 2500 ETH
+    uint256 private constant BIDDING_AIRDROP = 2500e18;  
+ 
+    // BNB = 1; MATIC = 100; Arbitrum, Rinkeby = 0.25; Avalanche=5, HT = 20, Fantom = 80, Harmony = 500
+
     // Airdrop for the next tender: 10000 FESW/BNB
-    uint256 public constant AIRDROP_RATE_FOR_NEXT_BIDDER = 10_000 / 1;      // BNB = 1; MATIC = 100
+    uint256 public constant AIRDROP_RATE_FOR_NEXT_BIDDER = 10_000 / 1;      // 10_000 / 1, BNB = 1; MATIC = 100 ; Arbitrum: 40_000
 
     // Airdrop rate for Bid winner: 50000 FESW/BNB
-    uint256 public constant AIRDROP_RATE_FOR_WINNER = 50_000 / 1;    
+    uint256 public constant AIRDROP_RATE_FOR_WINNER = 50_000 / 1;           // 50_000 / 1; Arbitrum: 200_000
 
     // Minimum price increase for tender: 0.02 BNB
-    uint256 public constant MINIMUM_PRICE_INCREACE = 2e16 * 1;    
+    uint256 public constant MINIMUM_PRICE_INCREACE = 2e16 * 1;              //  2e16 * 1; Arbitrum: 5e15
 
     // Max price for NFT sale: 100,000 BNB
-    uint256 public constant MAX_SALE_PRICE = 1000_000e18 * 1; 
+    uint256 public constant MAX_SALE_PRICE = 1000_000e18 * 1;               // 1000_000e18 * 1; Arbitrum: 250_000e18
 
     // contract of Feswap DAO Token
     address public immutable FeswapToken;
@@ -305,12 +332,15 @@ contract FeswaNFTPatch is ERC721, Ownable, DestroyController {
     // Sale start timestamp
     uint256 public immutable SaleStartTime;                                   //2021/09/28 08:00
 
+    uint128 public TotalBidValue;
+    uint64  public AirdropDepletionTime;
+
     // Mapping from token ID to token pair infomation
     mapping (uint256 => FeswaPair) public ListPools;
  
     // Events
     event PairCreadted(address indexed tokenA, address indexed tokenB, uint256 tokenID);
-
+  
     /**
      * @dev Initializes the contract by setting a `name` and a `symbol` to the token collection.
      */

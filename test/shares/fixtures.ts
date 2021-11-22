@@ -165,7 +165,7 @@ export async function FeswaNFTFixturePatch(
   const salt = "0x291AD4D300CBA1259F2807167DE059F45F0EA7EDC76A99BE5290E88E498EC62B"
   await MetamorphicFactory.deployMetamorphicContract(salt, NFTPatchImplementation.address, "0x", { ...overrides, value: 0 })
 
-  console.log("Factory", Factory.address)
+//  console.log("Factory", Factory.address)
   // Token A address is always less than Token B addess for testing 
   if(Token0.address.toLowerCase() <= Token1.address.toLowerCase() ) {
     return { TokenA: Token0, TokenB: Token1, Feswa, Factory, FeswaNFT, Router, MetamorphicFactory }

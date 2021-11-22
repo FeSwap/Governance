@@ -10,6 +10,7 @@ import FeSwapPair from './Feswap/FeSwapPair.json'
 import FeswaNFTCode from '../build/FeswaNFT.json'
 import FeswaNFTPatchPureCode from '../build/FeswaNFTPatchPure.json'
 import DestroyControllerABI from '../build/DestroyController.json'
+import NFTTesterCode from '../build/NFTTester.json'
 
 chai.use(solidity)
 
@@ -28,15 +29,17 @@ enum PoolRunningPhase {
 }
 
 const coinTimes = 1   // BNB = 1; MATIC = 100;
+const AIRDROP_FOR_FIRST = expandTo18Decimals(1000);   // BNB
+
+// const coinTimes = 100   // BNB = 1; MATIC = 100;
+// const AIRDROP_FOR_FIRST = expandTo18Decimals(3000);   // MATIC
+
 const stepPrice = expandTo18Decimals(2).div(100).mul(coinTimes)
 const PriceOneETH = stepPrice.mul(50)
 const BidStartTime: number = 1615338000         // 2021/02/22 03/10 9:00
 const OPEN_BID_DURATION: number = (3600 * 24 * 3)
 const RECLAIM_DURATION: number = (3600 * 24 * 4)
 const CLOSE_BID_DELAY: number = (3600 * 2)
-
-// Airdrop for the first tender: 1000 FEST
-const AIRDROP_FOR_FIRST = expandTo18Decimals(1000);
 
 // Airdrop for the next tender: 500 FEST
 const AIRDROP_RATE_FOR_NEXT = 10000 / coinTimes;
@@ -112,7 +115,7 @@ describe('FeswaNFT', () => {
     expect(await FeswaNFT.OPEN_BID_DURATION()).to.eq(3600 * 24 * 3)
     expect(await FeswaNFT.RECLAIM_DURATION()).to.eq(3600 * 24 * 4)
     expect(await FeswaNFT.CLOSE_BID_DELAY()).to.eq(3600 * 2)
-    expect(await FeswaNFT.AIRDROP_FOR_FIRST()).to.eq(expandTo18Decimals(1000))
+    expect(await FeswaNFT.AIRDROP_FOR_FIRST()).to.eq(AIRDROP_FOR_FIRST)
     expect(await FeswaNFT.AIRDROP_RATE_FOR_NEXT_BIDDER()).to.eq(AIRDROP_RATE_FOR_NEXT)
     expect(await FeswaNFT.AIRDROP_RATE_FOR_WINNER()).to.eq(AIRDROP_RATE_FOR_WINNER)
     expect(await FeswaNFT.MINIMUM_PRICE_INCREACE()).to.eq(stepPrice)
@@ -129,6 +132,29 @@ describe('FeswaNFT', () => {
     await mineBlock(provider, BidStartTime + 1)
     await expect(FeswaNFT.BidFeswaPair(TokenA.address, TokenA.address, other0.address))
       .to.be.revertedWith('FESN: IDENTICAL_ADDRESSES')
+
+    await expect(FeswaNFT.BidFeswaPair(TokenA.address, other0.address, other0.address,
+              { ...overrides, value: stepPrice } ))
+          .to.be.revertedWith('FESN: Must be token')
+    await expect(FeswaNFT.BidFeswaPair(other1.address, TokenB.address, other0.address,
+            { ...overrides, value: stepPrice } ))
+        .to.be.revertedWith('FESN: Must be token')
+  })
+
+  it('BidFeswaPair: EOA checking', async () => {
+    await mineBlock(provider, BidStartTime + 1)
+
+    // deploy NFTTester
+    const NFTTester = await deployContract(wallet, NFTTesterCode )
+    await NFTTester.setTestAddress(FeswaNFT.address, TokenA.address, TokenB.address)
+    await wallet.sendTransaction({to: NFTTester.address, value: expandTo18Decimals(1)})
+
+//    console.log("NFTTester.address, TokenA.address, TokenB.address", NFTTester.address, TokenA.address, TokenB.address)
+//    const tokenIDMatch = utils.keccak256(utils.solidityPack(['address', 'address', 'address'],
+//                            [FeswaNFT.address, TokenA.address, TokenB.address]))    
+//    await expect(NFTTester.callNFTBidding()).to.emit(NFTTester, 'NFTTokenID').withArgs(tokenIDMatch)
+
+    await expect(NFTTester.callNFTBidding()).to.be.revertedWith('Contract Not Allowed')
   })
 
   it('BidFeswaPair: New NFT creation with Zero value', async () => {
@@ -189,15 +215,14 @@ describe('FeswaNFT', () => {
     const tokenIDMatch = utils.keccak256(
       utils.solidityPack(['address', 'address', 'address'],
         [FeswaNFT.address, TokenA.address, TokenB.address]))
-
     let bidtx
     let receipt
     bidtx = await FeswaNFT.BidFeswaPair(TokenA.address, TokenB.address, other0.address,
                                           { ...overrides, value: stepPrice })
-
+    
     receipt = await bidtx.wait()
-    expect(receipt.gasUsed).to.eq('294895')         // 294852 295515
-      
+    expect(receipt.gasUsed).to.eq('320444')       //320400 319620 319655 318898 296401 296358 294851 295514
+
     const NewFeswaPair = await FeswaNFT.ListPools(tokenIDMatch)
     const lastBlock = await provider.getBlock('latest')
     expect(NewFeswaPair.tokenA).to.deep.equal(TokenA.address)
@@ -209,10 +234,11 @@ describe('FeswaNFT', () => {
 
     await mineBlock(provider, BidStartTime + 10)
     bidtx = await FeswaNFT.BidFeswaPair(TokenA.address, TokenB.address, other0.address,
-                                          { ...overrides, value: stepPrice.mul(2) })
+      { ...overrides, value: stepPrice.mul(2) })
 
     receipt = await bidtx.wait()
-    expect(receipt.gasUsed).to.eq('101557')     // 101514 103123 98923
+    expect(receipt.gasUsed).to.eq('111856')     // 111813 111033 111063 110632 103063 103020  101513 103122 98922
+
   })
 
   it('BidFeswaPair: NFT Normal creation, and address are swapped', async () => {
@@ -292,12 +318,11 @@ describe('FeswaNFT', () => {
       .withArgs(wallet.address, other0.address, tokenIDMatch)
 
     // Check the Bit Contract balance         
-    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance
-      .add(newPoolPrice.sub(initPoolPrice1).mul(9).div(10)))
+    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance.add(newPoolPrice.sub(initPoolPrice1)))
 
     // Check the first Bidder balance increasement        
-    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance
-      .add(initPoolPrice1).add(newPoolPrice.sub(initPoolPrice1).div(10)))
+    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance.add(initPoolPrice1))
+
   })
 
 
@@ -323,12 +348,10 @@ describe('FeswaNFT', () => {
       .withArgs(wallet.address, other0.address, tokenIDMatch)
 
     // Check the Bit Contract balance         
-    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance
-      .add(newPoolPrice.sub(PriceOneETH).mul(9).div(10)))
+    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance.add(newPoolPrice.sub(PriceOneETH)))
 
     // Check the first Bidder balance increasement        
-    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance
-      .add(PriceOneETH).add(newPoolPrice.sub(PriceOneETH).div(10))) 
+    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance.add(PriceOneETH)) 
   })
 
   it('BidFeswaPair: Checking 10% price increase ', async () => {
@@ -353,12 +376,10 @@ describe('FeswaNFT', () => {
       .withArgs(wallet.address, other1.address, tokenIDMatch)
 
     // Check the Bit Contract balance         
-    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance
-      .add(newPoolPrice.sub(PriceOneETH).mul(9).div(10)))
+    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance.add(newPoolPrice.sub(PriceOneETH)))
 
     // Check the first Bidder balance increasement        
-    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance
-      .add(PriceOneETH).add(newPoolPrice.sub(PriceOneETH).div(10)))
+    expect(await provider.getBalance(wallet.address)).to.be.eq(WalletBalance.add(PriceOneETH))
   })
 
   it('BidFeswaPair: Checking for Bid with more than 10% higher price', async () => {
@@ -394,15 +415,120 @@ describe('FeswaNFT', () => {
       .withArgs(other0.address, other1.address, tokenIDMatch)
 
     // Check the Bit Contract balance       
-    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance
-      .add((newPoolPrice2.sub(newPoolPrice1)).mul(9).div(10)))
+    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(FeswaNFTBalance.add(newPoolPrice2.sub(newPoolPrice1)))
 
     // Check the first Bidder balance increasement
-    expect(await provider.getBalance(other0.address)).to.be.eq(other0Balance
-      .add(newPoolPrice1).add(newPoolPrice2.sub(newPoolPrice1).div(10)))
-
+    expect(await provider.getBalance(other0.address)).to.be.eq(other0Balance.add(newPoolPrice1))
   })
 
+})
+
+describe('FeswaNFT: Hard airdrop cap test', () => {
+  const provider = new MockProvider({
+    ganacheOptions: {
+      hardfork: 'istanbul',
+      mnemonic: 'horn horn horn horn horn horn horn horn horn horn horn horn',
+      gasLimit: 9999999,
+    },
+  })
+  const [wallet, other0, other1] = provider.getWallets()
+  const loadFixture = createFixtureLoader([wallet, other0], provider)
+
+  let TokenA: Contract
+  let TokenB: Contract
+  let TokenC: Contract
+  let TokenD: Contract
+
+  let FeswaNFT: Contract
+  let Feswa: Contract
+  let tokenIDMatchAB: string
+  let tokenIDMatchAC: string
+  let tokenIDMatchAD: string
+
+  beforeEach('load fixture', async () => {
+    const fixture = await loadFixture(FeswaNFTFixturePatch)
+    TokenA = fixture.TokenA
+    TokenB = fixture.TokenB
+    FeswaNFT = fixture.FeswaNFT
+    Feswa = fixture.Feswa
+    let token0, token1: string
+
+    await Feswa.transfer(FeswaNFT.address, expandTo18Decimals(200_000_000))
+    TokenC = await deployContract(wallet, TestERC20, ['Test ERC20 C', 'TKC', 18, expandTo18Decimals(1000_000)])
+    TokenD = await deployContract(wallet, TestERC20, ['Test ERC20 D', 'TKD', 18, expandTo18Decimals(1000_000)])
+
+    tokenIDMatchAB =  utils.keccak256(utils.solidityPack( ['address', 'address', 'address'],
+                                                          [FeswaNFT.address, TokenA.address, TokenB.address]))
+    { [ token0, token1 ]  = TokenA.address.toLowerCase() <= TokenC.address.toLowerCase() 
+                                  ? [TokenA.address, TokenC.address] : [TokenC.address, TokenA.address] 
+
+      tokenIDMatchAC = utils.keccak256(utils.solidityPack(['address', 'address', 'address'], [FeswaNFT.address, token0, token1]))
+    }
+    { [token0, token1]  = TokenA.address.toLowerCase() <= TokenD.address.toLowerCase() 
+                                  ? [TokenA.address, TokenD.address] : [TokenD.address, TokenA.address] 
+
+      tokenIDMatchAD = utils.keccak256(utils.solidityPack(['address', 'address', 'address'], [FeswaNFT.address, token0, token1]))
+    }
+  })
+
+  it('FeswaNFT Bidding: Hard airdrop cap test', async () => {
+    // Normal creation
+    const PriceOfETH300 = expandTo18Decimals(300)
+    const PriceOfETH500 = expandTo18Decimals(500)
+    const PriceOfETH1000 = expandTo18Decimals(1000)
+    const Wallet_Init: BigNumber = await Feswa.balanceOf(wallet.address)
+
+    await mineBlock(provider, BidStartTime + 1)
+    await FeswaNFT.BidFeswaPair(TokenA.address, TokenB.address, wallet.address, { ...overrides, value: PriceOfETH1000 }) // Wallet: 1000
+
+    await mineBlock(provider, BidStartTime + 10)
+    await FeswaNFT.connect(other0).BidFeswaPair(TokenA.address, TokenC.address, other0.address, { ...overrides, value: PriceOfETH500 }) //othter0: 500
+
+    await mineBlock(provider, BidStartTime + 15)
+    await FeswaNFT.BidFeswaPair(TokenA.address, TokenC.address, wallet.address, { ...overrides, value: PriceOfETH1000 })   //Wallet: 1000+500
+
+    await mineBlock(provider, BidStartTime + 20)
+    await FeswaNFT.connect(other0).BidFeswaPair(TokenA.address, TokenB.address, other0.address,                           //other0: 500+300
+            { ...overrides, value: PriceOfETH1000.add(PriceOfETH300) })
+
+    // Hard cap reached here: only airdrop of 200ETH is distributed    
+    await mineBlock(provider, BidStartTime + 25)     
+    await FeswaNFT.connect(other0).BidFeswaPair(TokenA.address, TokenC.address, other0.address,                           //other0: 500+300+300(200)
+            { ...overrides, value: PriceOfETH1000.add(PriceOfETH300) })
+    const lastBlock = await provider.getBlock('latest')
+
+    await mineBlock(provider, BidStartTime + 30)  
+    await FeswaNFT.BidFeswaPair(TokenA.address, TokenB.address, wallet.address, 
+          { ...overrides, value: PriceOfETH1000.add(PriceOfETH300).add(PriceOfETH500) })                                  // Wallet: 1000+500+500(0)
+
+    await mineBlock(provider, BidStartTime + 35)  
+    await FeswaNFT.connect(other1).BidFeswaPair(TokenA.address, TokenD.address, other1.address, 
+          { ...overrides, value: PriceOfETH500 })                                                                         // other1: only initial airdrop
+
+    // Check the Bid Contract balance       
+    expect(await provider.getBalance(FeswaNFT.address)).to.be.eq(expandTo18Decimals(3600))
+    expect(await Feswa.balanceOf(other0.address)).to.be.eq(expandTo18Decimals(1000).mul(AIRDROP_RATE_FOR_NEXT).add(AIRDROP_FOR_FIRST))
+    expect(await Feswa.balanceOf(wallet.address))
+            .to.be.eq(expandTo18Decimals(1500).mul(AIRDROP_RATE_FOR_NEXT).add(AIRDROP_FOR_FIRST).add(Wallet_Init))
+    expect(await Feswa.balanceOf(other1.address)).to.be.eq(AIRDROP_FOR_FIRST)
+
+    // Only First initial creation airdrop        
+    expect(await FeswaNFT.TotalBidValue()).to.eq(expandTo18Decimals(3600))
+    expect(await FeswaNFT.AirdropDepletionTime()).to.eq(lastBlock.timestamp)   
+
+    const FeswBalanaceWallet = await Feswa.balanceOf(wallet.address)
+    const FeswBalanaceOther0 = await Feswa.balanceOf(other0.address)
+    const FeswBalanaceOther1 = await Feswa.balanceOf(other1.address)
+    
+    await mineBlock(provider, BidStartTime + 40 + OPEN_BID_DURATION) 
+    await FeswaNFT.ManageFeswaPair(tokenIDMatchAB, wallet.address, 10, 0 )
+    await FeswaNFT.connect(other0).ManageFeswaPair(tokenIDMatchAC, other0.address, 10, 0 )
+    await FeswaNFT.connect(other1).ManageFeswaPair(tokenIDMatchAD, other1.address, 10, 0 )
+
+    expect(await Feswa.balanceOf(wallet.address)).to.be.eq(FeswBalanaceWallet.add(expandTo18Decimals(1800).mul(AIRDROP_RATE_FOR_WINNER)))
+    expect(await Feswa.balanceOf(other0.address)).to.be.eq(FeswBalanaceOther0.add(expandTo18Decimals(1300).mul(AIRDROP_RATE_FOR_WINNER)))
+    expect(await Feswa.balanceOf(other1.address)).to.be.eq(FeswBalanaceOther1)
+  })
 })
 
 describe('BidFeswaReclaim: reclaim after the maxim delaying', () => {
