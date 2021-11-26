@@ -22,6 +22,7 @@ pragma experimental ABIEncoderV2;
 
 interface IFeswaNFT {
     // Views
+    function AIRDROP_FOR_FIRST() external view returns (uint);
     function AIRDROP_RATE_FOR_WINNER() external view returns (uint);
     function MINIMUM_PRICE_INCREACE() external view returns (uint);
     function SaleStartTime() external view returns (uint);

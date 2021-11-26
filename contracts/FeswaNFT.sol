@@ -53,8 +53,9 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
     uint256 public constant CLOSE_BID_DELAY = (3600 * 2);           
 
     // Airdrop for the first tender: 1000 FESW
-    uint256 public constant AIRDROP_FOR_FIRST = 1000e18;            // BNB: 1000; MATIC: 3000
-//  uint256 public constant AIRDROP_FOR_FIRST = 3000e18;            // BNB: 1000; MATIC: 3000
+    uint256 public constant AIRDROP_FOR_FIRST = 1000e18;            // BNB:      1000
+//  uint256 public constant AIRDROP_FOR_FIRST = 3000e18;            // MATIC:    3000
+//  uint256 public constant AIRDROP_FOR_FIRST = 5000e18;            // Avalance: 5000
 
     // Bidding airdrop cap : 2500 ETH
     uint256 private constant BIDDING_AIRDROP = 2500e18;  
@@ -192,6 +193,7 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
             // Only creators of the first 50,000 token pairs will receive the airdrop
             if (totalSupply() <= 50_000) airdropAmount = AIRDROP_FOR_FIRST;     // BNB
 //          if (totalSupply() <= 10_000) airdropAmount = AIRDROP_FOR_FIRST;     // MATIC
+//          if (totalSupply() <= 4_000) airdropAmount = AIRDROP_FOR_FIRST;      // AVALANCHE
   
         }
             
