@@ -1270,8 +1270,9 @@ contract FeswaNFTPatchPure is ERC721, Ownable, DestroyController {
     uint256 public constant CLOSE_BID_DELAY = (3600 * 2);           
 
     // Airdrop for the first tender: 1000 FESW
-    uint256 public constant AIRDROP_FOR_FIRST = 1000e18;            // BNB: 1000; MATIC: 3000
-//  uint256 public constant AIRDROP_FOR_FIRST = 3000e18;            // BNB: 1000; MATIC: 3000
+//  uint256 public constant AIRDROP_FOR_FIRST = 1000e18;            // BNB:      1000
+    uint256 public constant AIRDROP_FOR_FIRST = 3000e18;            // MATIC:    3000
+//  uint256 public constant AIRDROP_FOR_FIRST = 5000e18;            // Avalance: 5000
 
     // Bidding airdrop cap : 2500 ETH
     uint256 private constant BIDDING_AIRDROP = 2500e18;  
@@ -1279,16 +1280,16 @@ contract FeswaNFTPatchPure is ERC721, Ownable, DestroyController {
     // BNB = 1; MATIC = 100; Arbitrum, Rinkeby = 0.25; Avalanche=5, HT = 20, Fantom = 80, Harmony = 500
 
     // Airdrop for the next tender: 10000 FESW/BNB
-    uint256 public constant AIRDROP_RATE_FOR_NEXT_BIDDER = 10_000 / 1;      // 10_000 / 1, BNB = 1; MATIC = 100 ; Arbitrum: 40_000
+    uint256 public constant AIRDROP_RATE_FOR_NEXT_BIDDER = 10_000 / 100;      // 10_000 / 1, BNB = 1; MATIC = 100 ; Arbitrum: 40_000
 
     // Airdrop rate for Bid winner: 50000 FESW/BNB
-    uint256 public constant AIRDROP_RATE_FOR_WINNER = 50_000 / 1;           // 50_000 / 1; Arbitrum: 200_000
+    uint256 public constant AIRDROP_RATE_FOR_WINNER = 50_000 / 100;           // 50_000 / 1; Arbitrum: 200_000
 
     // Minimum price increase for tender: 0.02 BNB
-    uint256 public constant MINIMUM_PRICE_INCREACE = 2e16 * 1;              //  2e16 * 1; Arbitrum: 5e15
+    uint256 public constant MINIMUM_PRICE_INCREACE = 2e16 * 100;              //  2e16 * 1; Arbitrum: 5e15
 
     // Max price for NFT sale: 100,000 BNB
-    uint256 public constant MAX_SALE_PRICE = 1000_000e18 * 1;               // 1000_000e18 * 1; Arbitrum: 250_000e18
+    uint256 public constant MAX_SALE_PRICE = 1000_000e18 * 100;               // 1000_000e18 * 1; Arbitrum: 250_000e18
 
     // contract of Feswap DAO Token
 //    address public immutable FeswapToken;
@@ -1380,6 +1381,3 @@ contract FeswaNFTPatchPure is ERC721, Ownable, DestroyController {
         _setTokenURI(tokenID, tokenURI);
     }
 }
-
-
-

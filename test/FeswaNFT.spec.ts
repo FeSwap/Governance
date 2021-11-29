@@ -26,11 +26,11 @@ enum PoolRunningPhase {
   PoolForSale
 }
 
-const coinTimes = 1   // BNB = 1; MATIC = 100;
-const AIRDROP_FOR_FIRST = expandTo18Decimals(1000);   // BNB
+//const coinTimes = 1   // BNB = 1; MATIC = 100;
+//const AIRDROP_FOR_FIRST = expandTo18Decimals(1000);   // BNB
 
-// const coinTimes = 100   // BNB = 1; MATIC = 100;
-// const AIRDROP_FOR_FIRST = expandTo18Decimals(3000);   // MATIC
+const coinTimes = 100   // BNB = 1; MATIC = 100;
+const AIRDROP_FOR_FIRST = expandTo18Decimals(3000);   // MATIC
 
 const stepPrice = expandTo18Decimals(2).div(100).mul(coinTimes)
 const PriceOneETH = stepPrice.mul(50)
