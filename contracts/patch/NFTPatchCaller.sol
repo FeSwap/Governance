@@ -26,12 +26,14 @@ abstract contract NFTPatchCaller {
     // _metamorphicContractInitializationCodeHash = keccak256(metamorphicContractInitializationCode)
     //                                            = 0x15bfb1132dc67a984de77a9eef294f7e58964d02c62a359fd6f3c0c1d443e35c 
     // address(this): 0x84e924C5E04438D2c1Df1A981f7E7104952e6de1 (Test) 
-    // address(this): 0x6A8FE4753AB456e85E1379432d92ABF1fB49B5Df (Rinkeby/BSC/Polygon/Harmoney/Arbitrum/Fantom/Avalance/Heco) 
+    // address(this): 0x6A8FE4753AB456e85E1379432d92ABF1fB49B5Df (Rinkeby/BSC/Polygon/Harmoney/Arbitrum/Fantom/Avalance/Heco Testnet) 
     // address(this): 0x8565570A7cB2b2508F9180AD83e8f58F25e41596 (Goerli) 
+    // address(this): 0x0528D7de63aafdF748a5ef530949C80c4e8fbeC7 (Polygon Mainnet) 
    
 //  address public constant DELEGATE_TARGET = 0x92DD76703DACF9BE7F61CBC7ADAF77319084DBF8;   // (Goerli)
-    address public constant DELEGATE_TARGET = 0x0c30E7e5361533961CC651ba4F32EA222C0D214B;   // (Test)
-//  address public constant DELEGATE_TARGET = 0x90ccE03b617AAA4924bEabc41856973f52684B9B;   // (BSC/MATIC)
+//  address public constant DELEGATE_TARGET = 0x0c30E7e5361533961CC651ba4F32EA222C0D214B;   // (Test)
+//  address public constant DELEGATE_TARGET = 0x90ccE03b617AAA4924bEabc41856973f52684B9B;   // (BSC/MATIC Testnet)
+    address public constant DELEGATE_TARGET = 0x90A52bC0Ed546Cd90CD0C1BF271a497746874A9f;   // (Polygon Mainnet)
 
     /**
      * @dev Delegates the current call to `DELEGATE_TARGET`.
