@@ -124,7 +124,7 @@ export async function FeswaNFTFixture(
 
   await Factory.setRouterFeSwap(other0.address)
 
-  await Feswa.transfer(FeswaNFT.address, expandTo18Decimals(1000_000))
+  await Feswa.transfer(FeswaNFT.address, expandTo18Decimals(200_000_000))
 
   // Token A address is always less than Token B addess for testing 
   if(Token0.address.toLowerCase() <= Token1.address.toLowerCase() ) {
@@ -154,7 +154,7 @@ export async function FeswaNFTFixturePatch(
   const Token1 = await deployContract(wallet, TestERC20, ['Test ERC20 B', 'TKB', 18, expandTo18Decimals(1000_000)])
 
   await Factory.setRouterFeSwap(other0.address)
-  await Feswa.transfer(FeswaNFT.address, expandTo18Decimals(1000_000))
+  await Feswa.transfer(FeswaNFT.address, expandTo18Decimals(200_000_000))
 
   // deploy FeSwap MetamorphicContractFactory
   const MetamorphicFactory = await deployContract(wallet, MetamorphicContractFactory)

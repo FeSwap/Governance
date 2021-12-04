@@ -26,9 +26,9 @@ import "./patch/NFTPatchCaller.sol";
     struct FeswaPair {
         address tokenA;
         address tokenB;
-        uint256 currentPrice;
-        uint64  timeCreated;
-        uint64  lastBidTime; 
+        uint128 currentPrice;
+        uint48  timeCreated;
+        uint48  lastBidTime; 
         PoolRunningPhase  poolState;
     }
 
@@ -38,7 +38,7 @@ import "./patch/NFTPatchCaller.sol";
  */
 
 contract FeswaNFT is ERC721, Ownable, NFTPatchCaller { 
-    using SafeMath for uint256;
+    //    using SafeMath for uint256;	// seems not necessary
 
     // Public variables
     string public constant NAME = 'FeSwap Pool NFT';
@@ -53,13 +53,10 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
     uint256 public constant CLOSE_BID_DELAY = (3600 * 2);           
 
     // Airdrop for the first tender: 1000 FESW
-//  uint256 public constant AIRDROP_FOR_FIRST = 1000e18;            // BNB:      1000
-    uint256 public constant AIRDROP_FOR_FIRST = 3000e18;            // MATIC:    3000
-//  uint256 public constant AIRDROP_FOR_FIRST = 5000e18;            // Avalance: 5000
+    // uint256 public constant AIRDROP_FOR_FIRST    = 1000e18;             // BNB:      1000
+    uint256 public constant AIRDROP_FOR_FIRST       = 3000e18;             // MATIC:    3000
+    // uint256 public constant AIRDROP_FOR_FIRST    = 5000e18;             // Avalanche: 5000
 
-    // Bidding airdrop cap : 2500 ETH
-    uint256 private constant BIDDING_AIRDROP = 2500e18;  
- 
     // BNB = 1; MATIC = 100; Arbitrum, Rinkeby = 0.25; Avalanche=5, HT = 20, Fantom = 80, Harmony = 500
 
     // Airdrop for the next tender: 10000 FESW/BNB
@@ -68,11 +65,15 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
     // Airdrop rate for Bid winner: 50000 FESW/BNB
     uint256 public constant AIRDROP_RATE_FOR_WINNER = 50_000 / 100;           // 50_000 / 1; Arbitrum: 200_000
 
-    // Minimum price increase for tender: 0.02 BNB
+    // Minimum price increase for tender: 0.02 BNB, 2 MATIC
     uint256 public constant MINIMUM_PRICE_INCREACE = 2e16 * 100;              //  2e16 * 1; Arbitrum: 5e15
 
-    // Max price for NFT sale: 100,000 BNB
+    // Max price for NFT sale: 100,000 BNB/ 100M MATIC 
     uint256 public constant MAX_SALE_PRICE = 1000_000e18 * 100;               // 1000_000e18 * 1; Arbitrum: 250_000e18
+
+    // Bidding airdrop cap : 2500 BNB
+    // uint256 private constant BIDDING_AIRDROP_CAP = 2500e18;             // BNB:     2500 BNB
+    uint256 private constant BIDDING_AIRDROP_CAP    = 2800e18 * 100;       // MATIC:   280,000 MATIC
 
     // contract of Feswap DAO Token
     address public immutable FeswapToken;
@@ -109,6 +110,7 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
      */
     function BidFeswaPair(address tokenA, address tokenB, address to) external payable returns (uint256 tokenID) {
         require(block.timestamp > SaleStartTime, 'FESN: BID NOT STARTED');
+        require(tokenA != address(0) && tokenB != address(0) && to != address(0) , 'FeSwap: ZERO_ADDRESS');
         require(tokenA != tokenB, 'FESN: IDENTICAL_ADDRESSES');
         require(Address.isContract(tokenA) && Address.isContract(tokenB), 'FESN: Must be token');
         require(!Address.isContract(msg.sender), 'FESN: Contract Not Allowed');
@@ -117,7 +119,7 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
         (address token0, address token1) = (tokenA <= tokenB) ? (tokenA, tokenB) : (tokenB, tokenA);
         tokenID  = uint256(keccak256(abi.encodePacked(address(this), token0, token1)));
 
-        uint256 airdropAmount;
+        uint256 airdropAmount = 0;
 
         if(_exists(tokenID )){
             bool isReclaimable = false;
@@ -146,11 +148,11 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
 
             if(!isReclaimable)
             {
-                require(msg.value >= pairInfo.currentPrice.mul(102).div(100), 'FESN: PAY LESS 1');  // minimum 2% increase
-                require(msg.value >= pairInfo.currentPrice.add(MINIMUM_PRICE_INCREACE), 'FESN: PAY LESS 2');  // minimum 0.02 BNB increase
+                require(msg.value >= pairInfo.currentPrice * 102 / 100, 'FESN: PAY LESS 1');  // minimum 2% increase
+                require(msg.value >= pairInfo.currentPrice + MINIMUM_PRICE_INCREACE, 'FESN: PAY LESS 2');  // minimum 0.02 BNB increase
 
                 // calculate airdrop amount, may be zero if airdrop depleted
-                airdropAmount = getAirDropAmount(msg.value.sub(pairInfo.currentPrice));
+                airdropAmount = getAirDropAmount(msg.value - pairInfo.currentPrice);
 
                 // repay amount
                 uint256 repayAmount = pairInfo.currentPrice;
@@ -159,8 +161,8 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
                 _transfer(preOwner, to, tokenID);
                 
                 // update pairInfo information
-                pairInfo.lastBidTime = uint64(block.timestamp);
-                pairInfo.currentPrice = msg.value;
+                pairInfo.lastBidTime = uint48(block.timestamp);
+                pairInfo.currentPrice = uint128(msg.value);
 
                 // Airdrop to the next coming tenders
                 if(airdropAmount > 0) TransferHelper.safeTransfer(FeswapToken, to, airdropAmount);
@@ -172,7 +174,6 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
 
             // Prepare to reclaim the swap token-pair, half of the bidding price will be returned
             uint256 returnPrice = pairInfo.currentPrice / 2;
-            airdropAmount = 0;
 
             // Change the token owner
             _transfer(preOwner, to, tokenID);
@@ -180,7 +181,7 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
             // return back 50% of the previous price
             if( returnPrice > 0 ){
                 if((AirdropDepletionTime==0) || (pairInfo.timeCreated <= AirdropDepletionTime))
-                    TransferHelper.safeTransfer(FeswapToken, preOwner, returnPrice.mul(AIRDROP_RATE_FOR_WINNER));
+                    TransferHelper.safeTransfer(FeswapToken, preOwner, returnPrice * AIRDROP_RATE_FOR_WINNER);
 
                 // As preOwner cannot be contact, re-entry not possible here       
                 TransferHelper.safeTransferETH(preOwner, returnPrice);
@@ -201,28 +202,28 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
         FeswaPair memory newPairInfo;
         newPairInfo.tokenA = token0;
         newPairInfo.tokenB = token1;
-        newPairInfo.currentPrice = msg.value;              
-        newPairInfo.timeCreated = uint64(block.timestamp);
-        newPairInfo.lastBidTime = uint64(block.timestamp);
+        newPairInfo.currentPrice = uint128(msg.value);              
+        newPairInfo.timeCreated = uint48(block.timestamp);
+        newPairInfo.lastBidTime = uint48(block.timestamp);
         newPairInfo.poolState = PoolRunningPhase.BidPhase;
         ListPools[tokenID] = newPairInfo;
 
         if(msg.value > 0) airdropAmount += getAirDropAmount(msg.value);
 
-        // Airdrop to the first tender, airdropAmount maybe 0 after 50K token pair created
+        // Airdrop to the first tender, airdropAmount maybe 0 after 50K/10K token pair created
         if(airdropAmount > 0) TransferHelper.safeTransfer(FeswapToken, to, airdropAmount);
     }
 
     function getAirDropAmount(uint256 userBidValue) internal returns (uint256 airdropAmount) {
         airdropAmount = 0;
         if(AirdropDepletionTime == 0) {
-            uint256 availableAirdrop = BIDDING_AIRDROP - TotalBidValue;
+            uint256 availableAirdrop = BIDDING_AIRDROP_CAP - TotalBidValue;
             uint256 airdropValue = userBidValue;
             if(availableAirdrop <= airdropValue) {
                 airdropValue = availableAirdrop;
                 AirdropDepletionTime = uint64(block.timestamp);
             }
-            airdropAmount = airdropValue.mul(AIRDROP_RATE_FOR_NEXT_BIDDER);
+            airdropAmount = airdropValue * AIRDROP_RATE_FOR_NEXT_BIDDER;
         }
         TotalBidValue += uint128(userBidValue);
         return airdropAmount;
@@ -251,7 +252,7 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
             // Airdrop to the NFT owner, may be over airdropped, the over part paid from FeSwap Fund
             if(pairInfo.currentPrice > 0) { 
                 if((AirdropDepletionTime == 0) || (pairInfo.timeCreated <= AirdropDepletionTime))
-                TransferHelper.safeTransfer(FeswapToken, msg.sender, pairInfo.currentPrice.mul(AIRDROP_RATE_FOR_WINNER));
+                    TransferHelper.safeTransfer(FeswapToken, msg.sender, pairInfo.currentPrice * AIRDROP_RATE_FOR_WINNER);
             }    
         }
 
@@ -274,7 +275,7 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
         if(pairPrice != 0){
             require(pairPrice <= MAX_SALE_PRICE, 'FESN: PRICE TOO HIGH'); 
             pairInfo.poolState = PoolRunningPhase.PoolForSale;
-            pairInfo.currentPrice = pairPrice;
+            pairInfo.currentPrice = uint128(pairPrice);
         } else {
             pairInfo.poolState = PoolRunningPhase.PoolHolding;
         }
@@ -286,9 +287,10 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
      * @dev Sell the Pair with the specified Price. 
      */
     function FeswaPairBuyIn(uint256 tokenID, uint256 newPrice, address to) external payable returns (uint256 getPrice) {
+        require(to != address(0), 'FeSwap: ZERO_ADDRESS');
         require(_exists(tokenID), 'FESN: TOKEN NOT CREATED');
         FeswaPair storage pairInfo = ListPools[tokenID]; 
-        require( pairInfo.poolState == PoolRunningPhase.PoolForSale, 'FESN: NOT FOR SALE');
+        require(pairInfo.poolState == PoolRunningPhase.PoolForSale, 'FESN: NOT FOR SALE');
 
         uint256  currentPrice = pairInfo.currentPrice;
         require(msg.value >= currentPrice, 'FESN: PAY LESS');  
@@ -299,7 +301,7 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
         _transfer(preOwner, to, tokenID);
 
         if(newPrice != 0){
-            pairInfo.currentPrice = newPrice;
+            pairInfo.currentPrice = uint128(newPrice);
         } else {
             pairInfo.poolState = PoolRunningPhase.PoolHolding;
         }
