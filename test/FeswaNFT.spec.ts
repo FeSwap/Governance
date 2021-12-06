@@ -1113,7 +1113,7 @@ describe('FeswaPairBuyIn', () => {
       { ...overrides, value: PoolSalePrice.mul(2) })
     const receipt = await tx.wait()
 
-    expect(receipt.gasUsed).to.eq('132368')   // 132677 133492  139354
+    expect(receipt.gasUsed).to.eq('132344')   // 132677 133492  139354
 
     // checking
     const NewFeswaPair = await FeswaNFT.ListPools(tokenIDMatch)
