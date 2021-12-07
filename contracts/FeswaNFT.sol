@@ -287,7 +287,6 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
      * @dev Sell the Pair with the specified Price. 
      */
     function FeswaPairBuyIn(uint256 tokenID, uint256 newPrice, address to) external payable returns (uint256 getPrice) {
-        require(to != address(0), 'FeSwap: ZERO_ADDRESS');
         require(_exists(tokenID), 'FESN: TOKEN NOT CREATED');
         FeswaPair storage pairInfo = ListPools[tokenID]; 
         require(pairInfo.poolState == PoolRunningPhase.PoolForSale, 'FESN: NOT FOR SALE');
@@ -298,7 +297,9 @@ contract FeswaNFT is ERC721, Ownable, NFTPatchCaller {
 
         // Change the token owner
         address preOwner = ownerOf(tokenID);
-        _transfer(preOwner, to, tokenID);
+
+        // send NFT to msg.sender, not to `to` Address
+        _transfer(preOwner, msg.sender, tokenID);
 
         if(newPrice != 0){
             pairInfo.currentPrice = uint128(newPrice);
