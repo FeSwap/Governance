@@ -32,8 +32,8 @@ abstract contract NFTPatchCaller {
    
 //  address public constant DELEGATE_TARGET = 0x92DD76703DACF9BE7F61CBC7ADAF77319084DBF8;   // (Goerli)
 //  address public constant DELEGATE_TARGET = 0x0c30E7e5361533961CC651ba4F32EA222C0D214B;   // (Test)
-    address public constant DELEGATE_TARGET = 0x90ccE03b617AAA4924bEabc41856973f52684B9B;   // (BSC/MATIC Testnet)
-//  address public constant DELEGATE_TARGET = 0x90A52bC0Ed546Cd90CD0C1BF271a497746874A9f;   // (Polygon Mainnet)
+//  address public constant DELEGATE_TARGET = 0x90ccE03b617AAA4924bEabc41856973f52684B9B;   // (BSC/MATIC Testnet)
+    address public constant DELEGATE_TARGET = 0x90A52bC0Ed546Cd90CD0C1BF271a497746874A9f;   // (Polygon Mainnet)
 
     /**
      * @dev Delegates the current call to `DELEGATE_TARGET`.

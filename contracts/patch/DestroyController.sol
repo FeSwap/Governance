@@ -7,8 +7,10 @@ abstract contract DestroyController{
     address public constant DESTROY_CONTROLLER = 0x63FC2aD3d021a4D7e64323529a55a9442C444dA0;
 
     // For Deploy 
-//    address public constant ROOT_CONTRACT         = 0x94BA4d5Ebb0e05A50e977FFbF6e1a1Ee3D89299c;
-//    address public constant DESTROY_CONTROLLER    = 0x63FC2aD3d021a4D7e64323529a55a9442C444dA0;
+//  address public constant ROOT_CONTRACT         = 0xf6475c3143574F4d84c627fea3df81036ceeDAC4;     // MATIC Testnet
+//  address public constant DESTROY_CONTROLLER    = 0x8d832f73D678cFd2dA04401b18973Ed146Db1ABA;     // MATIC Testnet
+    address public constant ROOT_CONTRACT         = 0xA2f089377f4Dddf971ba65a69Fb4DFDD5fAf16Bb;     // MATIC Mainnet: NFT 
+    address public constant DESTROY_CONTROLLER    = 0x8De31B9958995792414d34F8De24713e3267DE45;     // MATIC Mainnet: Deployer
        
     function destroy(address payable to) public {
         require(address(this) != ROOT_CONTRACT, "Root not destroyable!");
