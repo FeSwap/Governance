@@ -3,8 +3,8 @@ pragma solidity 0.7.5;
 
 abstract contract DestroyController{
     // For Test 
-    address public constant ROOT_CONTRACT = 0xaC8444e7d45c34110B34Ed269AD86248884E78C7;
-    address public constant DESTROY_CONTROLLER = 0x63FC2aD3d021a4D7e64323529a55a9442C444dA0;
+//  address public constant ROOT_CONTRACT = 0xaC8444e7d45c34110B34Ed269AD86248884E78C7;
+//  address public constant DESTROY_CONTROLLER = 0x63FC2aD3d021a4D7e64323529a55a9442C444dA0;
 
     // For Deploy 
 //  address public constant ROOT_CONTRACT         = 0xf6475c3143574F4d84c627fea3df81036ceeDAC4;     // MATIC Testnet
